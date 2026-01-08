@@ -8,6 +8,8 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 # Cleanup on exit
@@ -48,22 +50,30 @@ case "$OS" in
         ;;
 esac
 
-# Installation directory
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+# Installation directory - prefer ~/.local/bin (no sudo needed)
+if [ -z "${INSTALL_DIR:-}" ]; then
+    if [ -w "/usr/local/bin" ]; then
+        INSTALL_DIR="/usr/local/bin"
+    else
+        INSTALL_DIR="$HOME/.local/bin"
+    fi
+fi
+
 GITHUB_REPO="philschmid/mcp-cli"
 
-echo -e "${GREEN}Installing mcp-cli...${NC}"
-echo "Detected: $OS/$ARCH"
-echo "Binary: $BINARY"
+# Print banner
+echo ""
+echo -e "${BOLD}Installing mcp-cli${NC}"
+echo ""
+echo -e "  ${BOLD}Platform${NC}:  $OS/$ARCH"
+echo -e "  ${BOLD}Binary${NC}:    $BINARY"
+echo -e "  ${BOLD}Location${NC}:  $INSTALL_DIR/mcp-cli"
+echo ""
 
-# Check for existing installation (non-interactive mode - just warn)
+# Check for existing installation
 if command -v mcp-cli &> /dev/null; then
-    EXISTING_PATH=$(which mcp-cli)
     EXISTING_VERSION=$(mcp-cli --version 2>/dev/null || echo "unknown")
-    echo ""
-    echo -e "${YELLOW}Note: Overwriting existing mcp-cli${NC}"
-    echo "  Location: $EXISTING_PATH"
-    echo "  Version: $EXISTING_VERSION"
+    echo -e "${YELLOW}Note: Updating existing installation ($EXISTING_VERSION)${NC}"
     echo ""
 fi
 
@@ -72,7 +82,7 @@ DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/latest/download/$BINARY"
 CHECKSUM_URL="https://github.com/$GITHUB_REPO/releases/latest/download/checksums.txt"
 
 # Download binary
-echo "Downloading from $DOWNLOAD_URL..."
+echo -e "${BLUE}Downloading...${NC}"
 TMP_FILE=$(mktemp)
 if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_FILE"; then
     echo -e "${RED}Failed to download binary. Check if releases exist at:${NC}"
@@ -82,11 +92,11 @@ fi
 
 # Verify checksum (if available)
 TMP_CHECKSUM=$(mktemp)
-echo "Verifying checksum..."
 if curl -fsSL "$CHECKSUM_URL" -o "$TMP_CHECKSUM" 2>/dev/null; then
     # Extract checksum for our binary
     EXPECTED_CHECKSUM=$(grep "$BINARY" "$TMP_CHECKSUM" | awk '{print $1}')
     if [ -n "$EXPECTED_CHECKSUM" ]; then
+        echo -e "${BLUE}Verifying checksum...${NC}"
         # Calculate actual checksum
         if command -v sha256sum &> /dev/null; then
             ACTUAL_CHECKSUM=$(sha256sum "$TMP_FILE" | awk '{print $1}')
@@ -104,20 +114,22 @@ if curl -fsSL "$CHECKSUM_URL" -o "$TMP_CHECKSUM" 2>/dev/null; then
                 echo "Actual: $ACTUAL_CHECKSUM"
                 exit 1
             fi
-            echo -e "${GREEN}Checksum verified.${NC}"
+            echo -e "${GREEN}✓${NC} Checksum verified"
         fi
-    else
-        echo -e "${YELLOW}Warning: No checksum found for $BINARY${NC}"
     fi
-else
-    echo -e "${YELLOW}Warning: Could not download checksums file (skipping verification)${NC}"
 fi
 
 # Make executable
 chmod +x "$TMP_FILE"
 
-# Install (may require sudo)
-echo "Installing to $INSTALL_DIR/mcp-cli..."
+# Create install directory if needed
+if [ ! -d "$INSTALL_DIR" ]; then
+    echo -e "${BLUE}Creating $INSTALL_DIR...${NC}"
+    mkdir -p "$INSTALL_DIR"
+fi
+
+# Install
+echo -e "${BLUE}Installing...${NC}"
 if [ -w "$INSTALL_DIR" ]; then
     mv "$TMP_FILE" "$INSTALL_DIR/mcp-cli"
 else
@@ -126,15 +138,39 @@ else
 fi
 TMP_FILE=""  # Clear so cleanup doesn't try to delete
 
-# Verify installation
+# Success message
+echo ""
+echo -e "${GREEN}✓ mcp-cli installed successfully!${NC}"
+echo ""
+
+# Check if in PATH and show version
 if command -v mcp-cli &> /dev/null; then
-    echo ""
-    echo -e "${GREEN}✓ mcp-cli installed successfully!${NC}"
-    echo ""
     mcp-cli --version
-    echo ""
-    echo "Get started:"
-    echo "  mcp-cli --help"
 else
-    echo -e "${YELLOW}Installation complete. Add $INSTALL_DIR to your PATH if needed.${NC}"
+    # Not in PATH - show setup instructions
+    echo -e "${YELLOW}Add mcp-cli to your PATH:${NC}"
+    echo ""
+    
+    SHELL_NAME=$(basename "$SHELL")
+    case "$SHELL_NAME" in
+        bash)
+            echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
+            echo "  source ~/.bashrc"
+            ;;
+        zsh)
+            echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc"
+            echo "  source ~/.zshrc"
+            ;;
+        fish)
+            echo "  fish_add_path ~/.local/bin"
+            ;;
+        *)
+            echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+            ;;
+    esac
+    echo ""
 fi
+
+echo "Get started:"
+echo "  mcp-cli --help"
+echo ""

@@ -79,6 +79,11 @@ jobs:
           name: binaries
           path: dist/
       
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+      
       - name: Get version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
@@ -92,3 +97,4 @@ jobs:
             dist/mcp-cli-linux-x64
             dist/mcp-cli-darwin-x64
             dist/mcp-cli-darwin-arm64
+            dist/checksums.txt
