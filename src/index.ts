@@ -27,6 +27,21 @@ import {
   unknownOptionError,
 } from './errors.js';
 import { VERSION } from './version.js';
+import * as fs from 'node:fs';
+
+/**
+ * Check if stdin has data available (for detecting piped input in non-TTY environments)
+ * Uses fstatSync to check if stdin is a FIFO/pipe with data
+ */
+function hasStdinData(): boolean {
+  try {
+    const stats = fs.fstatSync(0); // fd 0 is stdin
+    // Check if it's a FIFO (pipe) or regular file with size
+    return stats.isFIFO() || (stats.isFile() && stats.size > 0);
+  } catch {
+    return false;
+  }
+}
 
 interface ParsedArgs {
   command: 'list' | 'grep' | 'info' | 'call' | 'help' | 'version';
@@ -104,7 +119,7 @@ function parseArgs(args: string[]): ParsedArgs {
     if (positional.length > 1) {
       result.command = 'call';
       result.args = positional.slice(1).join(' ');
-    } else if (!process.stdin.isTTY) {
+    } else if (!process.stdin.isTTY && hasStdinData()) {
       // If stdin has data (piped input), treat as call command
       result.command = 'call';
     } else {
