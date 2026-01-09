@@ -1,0 +1,12 @@
+# Exclude dev-only files from npm package
+.github/
+tests/
+scripts/
+src/
+*.jpeg
+*.png
+biome.json
+bun.lock
+mcp_servers.json
+tsup.config.ts
+SKILL.md
