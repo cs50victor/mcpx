@@ -22,6 +22,7 @@ import {
   getServerConfig,
   loadConfig,
 } from '../config.js';
+import { callViaDaemon, isDaemonRunning } from '../daemon.js';
 import {
   ErrorCode,
   formatCliError,
@@ -148,8 +149,38 @@ export async function callCommand(options: CallOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
+  if (await isDaemonRunning()) {
+    debug(`routing call through daemon: ${serverName}/${toolName}`);
+    try {
+      const result = await callViaDaemon(
+        serverName,
+        serverConfig,
+        toolName,
+        args,
+      );
+      if (options.json) {
+        console.log(formatJson(result));
+      } else {
+        console.log(formatToolResult(result));
+      }
+      return;
+    } catch (error) {
+      const errMsg = (error as Error).message;
+      if (errMsg.includes('not found') || errMsg.includes('unknown tool')) {
+        console.error(
+          formatCliError(toolNotFoundError(toolName, serverName, undefined)),
+        );
+      } else {
+        console.error(
+          formatCliError(toolExecutionError(toolName, serverName, errMsg)),
+        );
+      }
+      process.exit(ErrorCode.SERVER_ERROR);
+    }
+  }
+
   let client: Client;
-  let close: () => Promise<void> = async () => {}; // Initialize to noop to prevent undefined access
+  let close: () => Promise<void> = async () => {};
 
   try {
     const connection = await connectToServer(serverName, serverConfig);
@@ -168,14 +199,11 @@ export async function callCommand(options: CallOptions): Promise<void> {
     const result = await callTool(client, toolName, args);
 
     if (options.json) {
-      // Full JSON response
       console.log(formatJson(result));
     } else {
-      // Default: extract text content (raw output)
       console.log(formatToolResult(result));
     }
   } catch (error) {
-    // Try to get available tools for better error message
     let availableTools: string[] | undefined;
     try {
       const tools = await listTools(client);
@@ -185,7 +213,6 @@ export async function callCommand(options: CallOptions): Promise<void> {
     }
 
     const errMsg = (error as Error).message;
-    // Check if it's a "tool not found" type error
     if (errMsg.includes('not found') || errMsg.includes('unknown tool')) {
       console.error(
         formatCliError(toolNotFoundError(toolName, serverName, availableTools)),
