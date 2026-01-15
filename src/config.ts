@@ -248,9 +248,11 @@ export function getConfigPaths(explicitPath?: string): ConfigPathsResult {
   type Source = 'cli' | 'env' | 'search';
   const candidates: Array<{ path: string; source: Source }> = [];
 
-  if (explicitPath) candidates.push({ path: resolve(explicitPath), source: 'cli' });
+  if (explicitPath)
+    candidates.push({ path: resolve(explicitPath), source: 'cli' });
   if (envPath) candidates.push({ path: resolve(envPath), source: 'env' });
-  for (const p of getDefaultConfigPaths()) candidates.push({ path: p, source: 'search' });
+  for (const p of getDefaultConfigPaths())
+    candidates.push({ path: p, source: 'search' });
 
   const seen = new Set<string>();
   const pathInfos: ConfigPathInfo[] = [];

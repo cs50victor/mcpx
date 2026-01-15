@@ -2,7 +2,7 @@
  * Config command - Show config file locations and status
  */
 
-import { getConfigPaths, type ConfigPathsResult } from '../config.js';
+import { type ConfigPathsResult, getConfigPaths } from '../config.js';
 
 export interface ConfigOptions {
   json: boolean;
@@ -15,9 +15,9 @@ function formatTextOutput(result: ConfigPathsResult): string {
   if (result.active) {
     lines.push(`Active: ${result.active}`);
     if (result.activeSource === 'cli') {
-      lines.push(`        (from -c/--config flag)`);
+      lines.push('        (from -c/--config flag)');
     } else if (result.activeSource === 'env') {
-      lines.push(`        (from MCP_CONFIG_PATH)`);
+      lines.push('        (from MCP_CONFIG_PATH)');
     }
   } else {
     lines.push('Active: (none found)');
