@@ -18,7 +18,7 @@ describe('CLI Integration Tests', () => {
 
   beforeAll(async () => {
     // Create temp directory for test files
-    tempDir = await mkdtemp(join(tmpdir(), 'mcp-cli-integration-'));
+    tempDir = await mkdtemp(join(tmpdir(), 'mcpx-integration-'));
 
     // Create a test file to read
     testFilePath = join(tempDir, 'test.txt');
@@ -77,7 +77,7 @@ describe('CLI Integration Tests', () => {
       const result = await $`bun run ${cliPath} --help`.nothrow();
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.toString()).toContain('mcp-cli');
+      expect(result.stdout.toString()).toContain('mcpx');
       expect(result.stdout.toString()).toContain('Usage:');
       expect(result.stdout.toString()).toContain('Options:');
     });
@@ -89,7 +89,7 @@ describe('CLI Integration Tests', () => {
       const result = await $`bun run ${cliPath} --version`.nothrow();
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.toString()).toMatch(/mcp-cli v\d+\.\d+\.\d+/);
+      expect(result.stdout.toString()).toMatch(/mcpx v\d+\.\d+\.\d+/);
     });
   });
 
@@ -310,7 +310,7 @@ describe('HTTP Transport Integration Tests', () => {
 
   beforeAll(async () => {
     // Create temp directory for config
-    tempDir = await mkdtemp(join(tmpdir(), 'mcp-cli-http-test-'));
+    tempDir = await mkdtemp(join(tmpdir(), 'mcpx-http-test-'));
 
     // Create config with HTTP-based MCP server
     configPath = join(tempDir, 'mcp_servers.json');

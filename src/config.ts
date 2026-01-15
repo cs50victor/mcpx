@@ -74,7 +74,7 @@ export const DEFAULT_RETRY_DELAY_MS = 1000; // 1 second base delay
  */
 export function debug(message: string): void {
   if (process.env.MCP_DEBUG) {
-    console.error(`[mcp-cli] ${message}`);
+    console.error(`[mcpx] ${message}`);
   }
 }
 
@@ -182,7 +182,7 @@ function substituteEnvVars(value: string): string {
       );
     }
     // Non-strict mode: warn but continue
-    console.error(`[mcp-cli] Warning: ${message}`);
+    console.error(`[mcpx] Warning: ${message}`);
   }
 
   return result;
@@ -281,7 +281,7 @@ export async function loadConfig(
   // Warn if no servers are configured
   if (Object.keys(config.mcpServers).length === 0) {
     console.error(
-      '[mcp-cli] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.',
+      '[mcpx] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.',
     );
   }
 

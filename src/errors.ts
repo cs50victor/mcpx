@@ -112,7 +112,7 @@ export function serverNotFoundError(
     details: `Available servers: ${availableList}`,
     suggestion:
       available.length > 0
-        ? `Use one of: ${available.map((s) => `mcp-cli ${s}`).join(', ')}`
+        ? `Use one of: ${available.map((s) => `mcpx ${s}`).join(', ')}`
         : `Add server to mcp_servers.json: { "mcpServers": { "${serverName}": { ... } } }`,
   };
 }
@@ -171,7 +171,7 @@ export function toolNotFoundError(
     details: availableTools
       ? `Available tools: ${toolList}${moreCount}`
       : undefined,
-    suggestion: `Run 'mcp-cli ${serverName}' to see all available tools`,
+    suggestion: `Run 'mcpx ${serverName}' to see all available tools`,
   };
 }
 
@@ -184,9 +184,9 @@ export function toolExecutionError(
 
   // Detect common MCP error patterns
   if (cause.includes('validation') || cause.includes('invalid_type')) {
-    suggestion = `Run 'mcp-cli ${serverName}/${toolName}' to see the input schema, then fix arguments`;
+    suggestion = `Run 'mcpx ${serverName}/${toolName}' to see the input schema, then fix arguments`;
   } else if (cause.includes('required')) {
-    suggestion = `Missing required argument. Run 'mcp-cli ${serverName}/${toolName}' to see required fields`;
+    suggestion = `Missing required argument. Run 'mcpx ${serverName}/${toolName}' to see required fields`;
   } else if (cause.includes('permission') || cause.includes('denied')) {
     suggestion = 'Permission denied. Check file/resource permissions';
   } else if (cause.includes('not found') || cause.includes('ENOENT')) {
@@ -212,7 +212,7 @@ export function invalidTargetError(target: string): CliError {
     type: 'INVALID_TARGET',
     message: `Invalid target format: "${target}"`,
     details: 'Expected format: server/tool',
-    suggestion: `Use 'mcp-cli <server>/<tool> <json>' format, e.g., 'mcp-cli github/search_repos \'{"query":"mcp"}\''`,
+    suggestion: `Use 'mcpx <server>/<tool> <json>' format, e.g., 'mcpx github/search_repos \'{"query":"mcp"}\''`,
   };
 }
 
@@ -239,7 +239,7 @@ export function unknownOptionError(option: string): CliError {
     code: ErrorCode.CLIENT_ERROR,
     type: 'UNKNOWN_OPTION',
     message: `Unknown option: ${option}`,
-    suggestion: "Run 'mcp-cli --help' to see available options",
+    suggestion: "Run 'mcpx --help' to see available options",
   };
 }
 
@@ -251,7 +251,7 @@ export function missingArgumentError(
     code: ErrorCode.CLIENT_ERROR,
     type: 'MISSING_ARGUMENT',
     message: `Missing required argument for ${command}: ${argument}`,
-    suggestion: `Run 'mcp-cli --help' for usage examples`,
+    suggestion: `Run 'mcpx --help' for usage examples`,
   };
 }
 

@@ -20,7 +20,7 @@ describe('config', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), 'mcp-cli-test-'));
+    tempDir = await mkdtemp(join(tmpdir(), 'mcpx-test-'));
   });
 
   afterEach(async () => {
