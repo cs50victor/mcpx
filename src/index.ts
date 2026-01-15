@@ -4,6 +4,7 @@
  *
  * Commands:
  *   mcpx                         List all servers and tools
+ *   mcpx config                  Show config file locations
  *   mcpx grep <pattern>          Search tools by glob pattern
  *   mcpx <server>                Show server details
  *   mcpx <server>/<tool>         Show tool schema
@@ -11,6 +12,7 @@
  */
 
 import { callCommand } from './commands/call.js';
+import { configCommand } from './commands/config.js';
 import { grepCommand } from './commands/grep.js';
 import { infoCommand } from './commands/info.js';
 import { listCommand } from './commands/list.js';
@@ -29,7 +31,7 @@ import {
 import { VERSION } from './version.js';
 
 interface ParsedArgs {
-  command: 'list' | 'grep' | 'info' | 'call' | 'help' | 'version';
+  command: 'list' | 'grep' | 'info' | 'call' | 'config' | 'help' | 'version';
   target?: string;
   pattern?: string;
   args?: string;
@@ -92,6 +94,8 @@ function parseArgs(args: string[]): ParsedArgs {
   // Determine command from positional arguments
   if (positional.length === 0) {
     result.command = 'list';
+  } else if (positional[0] === 'config') {
+    result.command = 'config';
   } else if (positional[0] === 'grep') {
     result.command = 'grep';
     result.pattern = positional[1];
@@ -128,6 +132,7 @@ mcpx v${VERSION} - A lightweight CLI for MCP servers
 
 Usage:
   mcpx [options]                           List all servers and tools
+  mcpx [options] config                    Show config file locations
   mcpx [options] grep <pattern>            Search tools by glob pattern
   mcpx [options] <server>                  Show server tools and parameters
   mcpx [options] <server>/<tool>           Show tool schema and description
@@ -216,6 +221,13 @@ async function main(): Promise<void> {
       await callCommand({
         target: args.target ?? '',
         args: args.args,
+        json: args.json,
+        configPath: args.configPath,
+      });
+      break;
+
+    case 'config':
+      await configCommand({
         json: args.json,
         configPath: args.configPath,
       });

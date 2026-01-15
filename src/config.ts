@@ -225,6 +225,55 @@ function getDefaultConfigPaths(): string[] {
   return paths;
 }
 
+export interface ConfigPathInfo {
+  path: string;
+  exists: boolean;
+  active: boolean;
+  source?: 'cli' | 'env' | 'search';
+}
+
+export interface ConfigPathsResult {
+  active: string | null;
+  activeSource: 'cli' | 'env' | 'search' | null;
+  searchPaths: ConfigPathInfo[];
+  envVar: string | undefined;
+}
+
+/**
+ * Get all config paths with their status (for `mcpx config` command)
+ */
+export function getConfigPaths(explicitPath?: string): ConfigPathsResult {
+  const envPath = process.env.MCP_CONFIG_PATH;
+
+  type Source = 'cli' | 'env' | 'search';
+  const candidates: Array<{ path: string; source: Source }> = [];
+
+  if (explicitPath) candidates.push({ path: resolve(explicitPath), source: 'cli' });
+  if (envPath) candidates.push({ path: resolve(envPath), source: 'env' });
+  for (const p of getDefaultConfigPaths()) candidates.push({ path: p, source: 'search' });
+
+  const seen = new Set<string>();
+  const pathInfos: ConfigPathInfo[] = [];
+  let active: string | null = null;
+  let activeSource: Source | null = null;
+
+  for (const { path, source } of candidates) {
+    if (seen.has(path)) continue;
+    seen.add(path);
+
+    const exists = existsSync(path);
+    const isActive = exists && active === null;
+    if (isActive) {
+      active = path;
+      activeSource = source;
+    }
+
+    pathInfos.push({ path, exists, active: isActive, source });
+  }
+
+  return { active, activeSource, searchPaths: pathInfos, envVar: envPath };
+}
+
 /**
  * Load and parse MCP servers configuration
  */

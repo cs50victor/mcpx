@@ -76,6 +76,7 @@ mcpx filesystem/read_file '{"path": "./README.md"}'
 
 ```
 mcpx [options]                           List all servers and tools (names only)
+mcpx [options] config                    Show config file locations
 mcpx [options] grep <pattern>            Search tools by glob pattern
 mcpx [options] <server>                  Show server tools and parameters
 mcpx [options] <server>/<tool>           Show tool schema (JSON input schema)
@@ -256,11 +257,25 @@ The CLI uses `mcp_servers.json`, compatible with Claude Desktop, Gemini or VS Co
 
 The CLI searches for configuration in this order:
 
-1. `MCP_CONFIG_PATH` environment variable
-2. `-c/--config` command line argument
+1. `-c/--config` command line argument
+2. `MCP_CONFIG_PATH` environment variable
 3. `./mcp_servers.json` (current directory)
 4. `~/.mcp_servers.json`
 5. `~/.config/mcp/mcp_servers.json`
+
+Use `mcpx config` to see which config file is active and all search paths:
+
+```bash
+$ mcpx config
+Active: /home/user/project/mcp_servers.json
+
+Search paths:
+  > /home/user/project/mcp_servers.json
+  x /home/user/.mcp_servers.json
+  o /home/user/.config/mcp/mcp_servers.json
+```
+
+Legend: `>` = active, `o` = exists but not used, `x` = not found
 
 ### Environment Variables
 

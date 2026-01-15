@@ -12,6 +12,7 @@ Access MCP servers through the command line. MCP enables interaction with extern
 | Command | Output |
 |---------|--------|
 | `mcpx` | List all servers and tool names |
+| `mcpx config` | Show config file locations |
 | `mcpx <server>` | Show tools with parameters |
 | `mcpx <server>/<tool>` | Get tool JSON schema |
 | `mcpx <server>/<tool> '<json>'` | Call tool with arguments |
