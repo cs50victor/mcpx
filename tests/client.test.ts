@@ -10,12 +10,9 @@ import {
   isStdioServer,
   getMaxRetries,
   getRetryDelayMs,
-} from '../src/config';
-import {
-  isTransientError,
   getTimeoutMs,
   getConcurrencyLimit,
-} from '../src/client';
+} from '../src/config';
 
 describe('client', () => {
   describe('server config type guards', () => {
@@ -54,51 +51,6 @@ describe('client', () => {
       };
 
       expect(isStdioServer(minimalStdio)).toBe(true);
-    });
-  });
-
-  describe('isTransientError', () => {
-    test('detects transient errors by code', () => {
-      const errWithCode = new Error('Connection failed') as NodeJS.ErrnoException;
-      errWithCode.code = 'ECONNREFUSED';
-      expect(isTransientError(errWithCode)).toBe(true);
-
-      const timeoutErr = new Error('Timeout') as NodeJS.ErrnoException;
-      timeoutErr.code = 'ETIMEDOUT';
-      expect(isTransientError(timeoutErr)).toBe(true);
-
-      const resetErr = new Error('Reset') as NodeJS.ErrnoException;
-      resetErr.code = 'ECONNRESET';
-      expect(isTransientError(resetErr)).toBe(true);
-    });
-
-    test('detects HTTP transient errors by message', () => {
-      expect(isTransientError(new Error('502 Bad Gateway'))).toBe(true);
-      expect(isTransientError(new Error('503 Service Unavailable'))).toBe(true);
-      expect(isTransientError(new Error('504 Gateway Timeout'))).toBe(true);
-      expect(isTransientError(new Error('429 Too Many Requests'))).toBe(true);
-    });
-
-    test('detects network-related errors by message', () => {
-      expect(isTransientError(new Error('network error occurred'))).toBe(true);
-      expect(isTransientError(new Error('network timeout'))).toBe(true);
-      expect(isTransientError(new Error('connection reset by peer'))).toBe(true);
-      expect(isTransientError(new Error('connection refused'))).toBe(true);
-      expect(isTransientError(new Error('request timeout'))).toBe(true);
-    });
-
-    test('returns false for non-transient errors', () => {
-      expect(isTransientError(new Error('Invalid JSON'))).toBe(false);
-      expect(isTransientError(new Error('Permission denied'))).toBe(false);
-      expect(isTransientError(new Error('Not found'))).toBe(false);
-    });
-
-    test('avoids false positives with word boundaries', () => {
-      // Should NOT match - these contain numbers but not as HTTP status codes
-      expect(isTransientError(new Error('Error at line 502 in file'))).toBe(false);
-      expect(isTransientError(new Error('Port 5029 is in use'))).toBe(false);
-      // Should NOT match - network is just part of a word
-      expect(isTransientError(new Error('social network tool failed'))).toBe(false);
     });
   });
 

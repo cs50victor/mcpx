@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, mkdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { $ } from 'bun';
@@ -18,7 +18,8 @@ describe('CLI Integration Tests', () => {
 
   beforeAll(async () => {
     // Create temp directory for test files
-    tempDir = await mkdtemp(join(tmpdir(), 'mcpx-integration-'));
+    // NOTE(victor): realpath resolves macOS /var -> /private/var symlink
+    tempDir = await realpath(await mkdtemp(join(tmpdir(), 'mcpx-integration-')));
 
     // Create a test file to read
     testFilePath = join(tempDir, 'test.txt');
