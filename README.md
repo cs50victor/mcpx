@@ -1,15 +1,17 @@
-# mcp-cli
+# mcpx
+
+> Fork of [philschmid/mcp-cli](https://github.com/philschmid/mcp-cli)
 
 A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers.
 
 ## Features
 
-- 🪶 **Lightweight** - Minimal dependencies, fast startup
-- 📦 **Single Binary** - Compile to standalone executable via `bun build --compile`
-- 🔧 **Shell-Friendly** - JSON output for scripting, intuitive commands
-- 🤖 **Agent-Optimized** - Designed for AI coding agents (Gemini CLI, Claude Code, etc.)
-- 🔌 **Universal** - Supports both stdio and HTTP MCP servers
-- 💡 **Actionable Errors** - Structured error messages with recovery suggestions
+- **Lightweight** - Minimal dependencies, fast startup
+- **Single Binary** - Compile to standalone executable via `bun build --compile`
+- **Shell-Friendly** - JSON output for scripting, intuitive commands
+- **Agent-Optimized** - Designed for AI coding agents (Gemini CLI, Claude Code, etc.)
+- **Universal** - Supports both stdio and HTTP MCP servers
+- **Actionable Errors** - Structured error messages with recovery suggestions
 
 ![mcp-cli](./comparison.jpeg)
 
@@ -18,14 +20,14 @@ A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)]
 ### 1. Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/philschmid/mcp-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/cs50victor/mcpx/dev/install.sh | bash
 ```
 
-or 
+or
 
 ```bash
-# requires bun install
-bun install -g https://github.com/philschmid/mcp-cli
+# requires bun installed
+bun install -g github:cs50victor/mcpx
 ```
 
 ### 2. Create a config file
@@ -54,30 +56,30 @@ Create `mcp_servers.json` in your current directory or `~/.config/mcp/`:
 
 ```bash
 # List all servers and tools
-mcp-cli
+mcpx
 
 # With descriptions
-mcp-cli -d
+mcpx -d
 ```
 
 ### 4. Call a tool
 
 ```bash
 # View tool schema first
-mcp-cli filesystem/read_file
+mcpx filesystem/read_file
 
 # Call the tool
-mcp-cli filesystem/read_file '{"path": "./README.md"}'
+mcpx filesystem/read_file '{"path": "./README.md"}'
 ```
 
 ## Usage
 
 ```
-mcp-cli [options]                           List all servers and tools (names only)
-mcp-cli [options] grep <pattern>            Search tools by glob pattern
-mcp-cli [options] <server>                  Show server tools and parameters
-mcp-cli [options] <server>/<tool>           Show tool schema (JSON input schema)
-mcp-cli [options] <server>/<tool> <json>    Call tool with arguments
+mcpx [options]                           List all servers and tools (names only)
+mcpx [options] grep <pattern>            Search tools by glob pattern
+mcpx [options] <server>                  Show server tools and parameters
+mcpx [options] <server>/<tool>           Show tool schema (JSON input schema)
+mcpx [options] <server>/<tool> <json>    Call tool with arguments
 ```
 
 > [!TIP]
@@ -107,7 +109,7 @@ mcp-cli [options] <server>/<tool> <json>    Call tool with arguments
 
 ```bash
 # Basic listing
-$ mcp-cli
+$ mcpx
 github
   • search_repositories
   • get_file_contents
@@ -118,7 +120,7 @@ filesystem
   • list_directory
 
 # With descriptions
-$ mcp-cli --with-descriptions
+$ mcpx --with-descriptions
 github
   • search_repositories - Search for GitHub repositories
   • get_file_contents - Get contents of a file or directory
@@ -131,21 +133,21 @@ filesystem
 
 ```bash
 # Find file-related tools across all servers
-$ mcp-cli grep "*file*"
+$ mcpx grep "*file*"
 github/get_file_contents
 github/create_or_update_file
 filesystem/read_file
 filesystem/write_file
 
 # Search with descriptions
-$ mcp-cli grep "*search*" -d
+$ mcpx grep "*search*" -d
 github/search_repositories - Search for GitHub repositories
 ```
 
 #### View Server Details
 
 ```bash
-$ mcp-cli github
+$ mcpx github
 Server: github
 Transport: stdio
 Command: npx -y @modelcontextprotocol/server-github
@@ -162,7 +164,7 @@ Tools (12):
 #### View Tool Schema
 
 ```bash
-$ mcp-cli github/search_repositories
+$ mcpx github/search_repositories
 Tool: search_repositories
 Server: github
 
@@ -184,13 +186,13 @@ Input Schema:
 
 ```bash
 # With inline JSON
-$ mcp-cli github/search_repositories '{"query": "mcp server", "per_page": 5}'
+$ mcpx github/search_repositories '{"query": "mcp server", "per_page": 5}'
 
 # JSON output for scripting
-$ mcp-cli github/search_repositories '{"query": "mcp"}' --json | jq '.content[0].text'
+$ mcpx github/search_repositories '{"query": "mcp"}' --json | jq '.content[0].text'
 
 # Read JSON from stdin (use '-' to indicate stdin)
-$ echo '{"path": "./README.md"}' | mcp-cli filesystem/read_file -
+$ echo '{"path": "./README.md"}' | mcpx filesystem/read_file -
 
 ```
 
@@ -200,22 +202,22 @@ For JSON arguments containing single quotes, special characters, or long text, u
 
 ```bash
 # Using a heredoc with '-' for stdin (recommended for complex JSON)
-mcp-cli server/tool - <<EOF
+mcpx server/tool - <<EOF
 {"content": "Text with 'single quotes' and \"double quotes\""}
 EOF
 
 # Using a variable
 JSON='{"message": "Hello, it'\''s a test"}'
-echo "$JSON" | mcp-cli server/tool -
+echo "$JSON" | mcpx server/tool -
 
 # From a file
-cat args.json | mcp-cli server/tool -
+cat args.json | mcpx server/tool -
 
 # Using jq to build complex JSON
-jq -n '{query: "mcp", filters: ["active", "starred"]}' | mcp-cli github/search -
+jq -n '{query: "mcp", filters: ["active", "starred"]}' | mcpx github/search -
 
 # Find all TypeScript files and read the first one
-mcp-cli filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcp-cli filesystem/read_file "{\"path\": \"{}\"}"'
+mcpx filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcpx filesystem/read_file "{\"path\": \"{}\"}"'
 ```
 
 **Why stdin?** Shell interpretation of `{}`, quotes, and special characters requires careful escaping. Stdin bypasses shell parsing entirely, making it reliable for any JSON content.
@@ -271,10 +273,41 @@ The CLI searches for configuration in this order:
 | `MCP_MAX_RETRIES` | Retry attempts for transient errors (0 = disable) | `3` |
 | `MCP_RETRY_DELAY` | Base retry delay (milliseconds) | `1000` |
 | `MCP_STRICT_ENV` | Error on missing `${VAR}` in config | `true` |
+| `MCP_DISABLED_TOOLS` | Comma-separated patterns to disable | (none) |
+
+### Disabled Tools
+
+Block specific tools from being called or listed. Patterns support `*` wildcards.
+
+**File locations (all merged):**
+
+| Path | Scope |
+|------|-------|
+| `~/.config/mcp/disabled_tools` | Global |
+| `~/.mcp_disabled_tools` | Global |
+| `./mcp_disabled_tools` | Project |
+
+**File format:**
+
+```
+# One pattern per line
+filesystem/write_file        # Exact match
+filesystem/delete_*          # Glob pattern
+*/dangerous_*                # Any server
+github/*                     # Entire server
+```
+
+**Error output:**
+
+```
+Error [TOOL_DISABLED]: Tool "filesystem/write_file" is disabled
+  Details: Matched pattern "filesystem/*" from ~/.config/mcp/disabled_tools
+  Suggestion: Use alternative tools or approaches to complete this task
+```
 
 ## Using with AI Agents
 
-`mcp-cli` is designed to give AI coding agents access to MCP (Model Context Protocol) servers. MCP enables AI models to interact with external tools, APIs, and data sources through a standardized protocol.
+`mcpx` is designed to give AI coding agents access to MCP (Model Context Protocol) servers. MCP enables AI models to interact with external tools, APIs, and data sources through a standardized protocol.
 
 ### Why MCP + CLI?
 
@@ -292,56 +325,56 @@ Add this to your AI agent's system prompt for direct CLI access:
 ````xml
 ## MCP Servers
 
-You have access to MCP (Model Context Protocol) servers via the `mcp-cli` cli.
+You have access to MCP (Model Context Protocol) servers via the `mcpx` cli.
 MCP provides tools for interacting with external systems like GitHub, databases, and APIs.
 
 Available Commands:
 
 ```bash
-mcp-cli                              # List all servers and tool names
-mcp-cli <server>                     # Show server tools and parameters
-mcp-cli <server>/<tool>              # Get tool JSON schema and descriptions
-mcp-cli <server>/<tool> '<json>'     # Call tool with JSON arguments
-mcp-cli grep "<pattern>"             # Search tools by name (glob pattern)
+mcpx                              # List all servers and tool names
+mcpx <server>                     # Show server tools and parameters
+mcpx <server>/<tool>              # Get tool JSON schema and descriptions
+mcpx <server>/<tool> '<json>'     # Call tool with JSON arguments
+mcpx grep "<pattern>"             # Search tools by name (glob pattern)
 ```
 
-**Add `-d` to include tool descriptions** (e.g., `mcp-cli <server> -d`)
+**Add `-d` to include tool descriptions** (e.g., `mcpx <server> -d`)
 
 Workflow:
 
-1. **Discover**: Run `mcp-cli` to see available servers and tools or `mcp-cli grep "<pattern>"` to search for tools by name (glob pattern)
-2. **Inspect**: Run `mcp-cli <server> -d` or `mcp-cli <server>/<tool>` to get the full JSON input schema if required context is missing. If there are more than 5 mcp servers defined don't use -d as it will print all tool descriptions and might exceed the context window.  
-3. **Execute**: Run `mcp-cli <server>/<tool> '<json>'` with correct arguments
+1. **Discover**: Run `mcpx` to see available servers and tools or `mcpx grep "<pattern>"` to search for tools by name (glob pattern)
+2. **Inspect**: Run `mcpx <server> -d` or `mcpx <server>/<tool>` to get the full JSON input schema if required context is missing. If there are more than 5 mcp servers defined don't use -d as it will print all tool descriptions and might exceed the context window.
+3. **Execute**: Run `mcpx <server>/<tool> '<json>'` with correct arguments
 
 ### Examples
 
 ```bash
 # With inline JSON
-$ mcp-cli github/search_repositories '{"query": "mcp server", "per_page": 5}'
+$ mcpx github/search_repositories '{"query": "mcp server", "per_page": 5}'
 
 # From stdin (use '-' to indicate stdin input)
-$ echo '{"query": "mcp"}' | mcp-cli github/search_repositories -
+$ echo '{"query": "mcp"}' | mcpx github/search_repositories -
 
 # Using a heredoc with '-' for stdin (recommended for complex JSON)
-mcp-cli server/tool - <<EOF
+mcpx server/tool - <<EOF
 {"content": "Text with 'single quotes' and \"double quotes\""}
 EOF
 
 # Complex Command chaining with xargs and jq
-mcp-cli filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcp-cli filesystem/read_file "{\"path\": \"{}\"}"'
+mcpx filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcpx filesystem/read_file "{\"path\": \"{}\"}"'
 ```
 
 ### Rules
 
-1. **Always check schema first**: Run `mcp-cli <server> -d or `mcp-cli <server>/<tool>` before calling any tool
+1. **Always check schema first**: Run `mcpx <server> -d or `mcpx <server>/<tool>` before calling any tool
 3. **Quote JSON arguments**: Wrap JSON in single quotes to prevent shell interpretation
 ````
 
 ### Option 2: Agents Skill
 
-For Code Agents that support Agents Skills, like Gemini CLI, OpenCode or Claude Code. you can use the mcp-cli skill to interface with MCP servers. The Skill is available at [SKILL.md](./SKILL.md)
+For Code Agents that support Agents Skills, like Gemini CLI, OpenCode or Claude Code. you can use the mcpx skill to interface with MCP servers. The Skill is available at [SKILL.md](./SKILL.md)
 
-Create `mcp-cli/SKILL.md` in your skills directory. 
+Create `mcpx/SKILL.md` in your skills directory. 
 
 ## Architecture
 
@@ -358,7 +391,7 @@ The CLI uses a **lazy, on-demand connection strategy**. Server connections are o
               │                 │                 │
               ▼                 ▼                 ▼
     ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-    │   mcp-cli       │ │ mcp-cli grep    │ │ mcp-cli server/ │
+    │   mcpx          │ │ mcpx grep       │ │ mcpx server/    │
     │   (list all)    │ │   "*pattern*"   │ │   tool '{...}'  │
     └─────────────────┘ └─────────────────┘ └─────────────────┘
               │                 │                 │
@@ -381,11 +414,11 @@ The CLI uses a **lazy, on-demand connection strategy**. Server connections are o
 
 | Command | Servers Connected |
 |---------|-------------------|
-| `mcp-cli` (list) | All N servers in parallel |
-| `mcp-cli grep "*pattern*"` | All N servers in parallel |
-| `mcp-cli server` | Only the specified server |
-| `mcp-cli server/tool` | Only the specified server |
-| `mcp-cli server/tool '{}'` | Only the specified server |
+| `mcpx` (list) | All N servers in parallel |
+| `mcpx grep "*pattern*"` | All N servers in parallel |
+| `mcpx server` | Only the specified server |
+| `mcpx server/tool` | Only the specified server |
+| `mcpx server/tool '{}'` | Only the specified server |
 
 ### Concurrency Control
 
@@ -417,7 +450,7 @@ For commands that connect to multiple servers (list, grep), the CLI uses a **wor
 **Concurrency settings:**
 
 - Default: `5` concurrent connections
-- Set via: `MCP_CONCURRENCY=10 mcp-cli` or export globally
+- Set via: `MCP_CONCURRENCY=10 mcpx` or export globally
 - Results are **order-preserved** (sorted alphabetically for display)
 
 **Why limit concurrency?**
@@ -473,7 +506,9 @@ The CLI includes **automatic retry with exponential backoff** for transient fail
 ### Setup
 
 ```bash
-bun install https://github.com/philschmid/mcp-cli
+git clone https://github.com/cs50victor/mcpx
+cd mcpx
+bun install
 ```
 
 ### Commands
@@ -513,9 +548,9 @@ Test the CLI locally without compiling by using `bun link`:
 # Link the package globally (run once)
 bun link
 
-# Now you can use 'mcp-cli' anywhere
-mcp-cli --help
-mcp-cli filesystem/read_file '{"path": "./README.md"}'
+# Now you can use 'mcpx' anywhere
+mcpx --help
+mcpx filesystem/read_file '{"path": "./README.md"}'
 
 # Or run directly during development
 bun run dev --help
@@ -546,7 +581,7 @@ Error [CONFIG_NOT_FOUND]: Config file not found: /path/config.json
 
 Error [SERVER_NOT_FOUND]: Server "github" not found in config
   Details: Available servers: filesystem, sqlite
-  Suggestion: Use one of: mcp-cli filesystem, mcp-cli sqlite
+  Suggestion: Use one of: mcpx filesystem, mcpx sqlite
 
 Error [INVALID_JSON_ARGUMENTS]: Invalid JSON in tool arguments
   Details: Parse error: Unexpected identifier "test"
@@ -554,7 +589,7 @@ Error [INVALID_JSON_ARGUMENTS]: Invalid JSON in tool arguments
 
 Error [TOOL_NOT_FOUND]: Tool "search" not found in server "filesystem"
   Details: Available tools: read_file, write_file, list_directory (+5 more)
-  Suggestion: Run 'mcp-cli filesystem' to see all available tools
+  Suggestion: Run 'mcpx filesystem' to see all available tools
 ```
 
 ## License

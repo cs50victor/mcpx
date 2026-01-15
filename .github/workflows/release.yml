@@ -50,13 +50,13 @@ jobs:
         run: bun install --frozen-lockfile
       
       - name: Build Linux x64
-        run: bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile dist/mcp-cli-linux-x64
-      
+        run: bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile dist/mcpx-linux-x64
+
       - name: Build macOS x64
-        run: bun build --compile --minify --target=bun-darwin-x64 src/index.ts --outfile dist/mcp-cli-darwin-x64
-      
+        run: bun build --compile --minify --target=bun-darwin-x64 src/index.ts --outfile dist/mcpx-darwin-x64
+
       - name: Build macOS ARM64
-        run: bun build --compile --minify --target=bun-darwin-arm64 src/index.ts --outfile dist/mcp-cli-darwin-arm64
+        run: bun build --compile --minify --target=bun-darwin-arm64 src/index.ts --outfile dist/mcpx-darwin-arm64
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -94,7 +94,7 @@ jobs:
           name: ${{ steps.version.outputs.VERSION }}
           generate_release_notes: true
           files: |
-            dist/mcp-cli-linux-x64
-            dist/mcp-cli-darwin-x64
-            dist/mcp-cli-darwin-arm64
+            dist/mcpx-linux-x64
+            dist/mcpx-darwin-x64
+            dist/mcpx-darwin-arm64
             dist/checksums.txt

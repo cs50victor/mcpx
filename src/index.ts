@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 /**
- * MCP-CLI - A lightweight CLI for interacting with MCP servers
+ * mcpx - A lightweight CLI for interacting with MCP servers
  *
  * Commands:
- *   mcp-cli                         List all servers and tools
- *   mcp-cli grep <pattern>          Search tools by glob pattern
- *   mcp-cli <server>                Show server details
- *   mcp-cli <server>/<tool>         Show tool schema
- *   mcp-cli <server>/<tool> <json>  Call tool with arguments
+ *   mcpx                         List all servers and tools
+ *   mcpx grep <pattern>          Search tools by glob pattern
+ *   mcpx <server>                Show server details
+ *   mcpx <server>/<tool>         Show tool schema
+ *   mcpx <server>/<tool> <json>  Call tool with arguments
  */
 
 import { callCommand } from './commands/call.js';
@@ -124,14 +124,14 @@ function parseArgs(args: string[]): ParsedArgs {
  */
 function printHelp(): void {
   console.log(`
-mcp-cli v${VERSION} - A lightweight CLI for MCP servers
+mcpx v${VERSION} - A lightweight CLI for MCP servers
 
 Usage:
-  mcp-cli [options]                           List all servers and tools
-  mcp-cli [options] grep <pattern>            Search tools by glob pattern
-  mcp-cli [options] <server>                  Show server tools and parameters
-  mcp-cli [options] <server>/<tool>           Show tool schema and description
-  mcp-cli [options] <server>/<tool> <json>    Call tool with arguments
+  mcpx [options]                           List all servers and tools
+  mcpx [options] grep <pattern>            Search tools by glob pattern
+  mcpx [options] <server>                  Show server tools and parameters
+  mcpx [options] <server>/<tool>           Show tool schema and description
+  mcpx [options] <server>/<tool> <json>    Call tool with arguments
 
 Options:
   -h, --help               Show this help message
@@ -154,13 +154,13 @@ Environment Variables:
   MCP_STRICT_ENV           Set to "false" to warn on missing env vars (default: true)
 
 Examples:
-  mcp-cli                                    # List all servers
-  mcp-cli -d                                 # List with descriptions
-  mcp-cli grep "*file*"                      # Search for file tools
-  mcp-cli filesystem                         # Show server tools
-  mcp-cli filesystem/read_file               # Show tool schema
-  mcp-cli filesystem/read_file '{"path":"./README.md"}'  # Call tool
-  echo '{"path":"./file"}' | mcp-cli server/tool -       # Read JSON from stdin
+  mcpx                                    # List all servers
+  mcpx -d                                 # List with descriptions
+  mcpx grep "*file*"                      # Search for file tools
+  mcpx filesystem                         # Show server tools
+  mcpx filesystem/read_file               # Show tool schema
+  mcpx filesystem/read_file '{"path":"./README.md"}'  # Call tool
+  echo '{"path":"./file"}' | mcpx server/tool -       # Read JSON from stdin
 
 Config File:
   The CLI looks for mcp_servers.json in:
@@ -183,7 +183,7 @@ async function main(): Promise<void> {
       break;
 
     case 'version':
-      console.log(`mcp-cli v${VERSION}`);
+      console.log(`mcpx v${VERSION}`);
       break;
 
     case 'list':

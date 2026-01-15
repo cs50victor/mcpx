@@ -1,20 +1,20 @@
 {
-  "name": "mcp-cli",
+  "name": "mcpx",
   "version": "0.1.4",
   "description": "A lightweight CLI for interacting with MCP (Model Context Protocol) servers",
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "mcp-cli": "src/index.ts"
+    "mcpx": "src/index.ts"
   },
   "scripts": {
     "dev": "bun run src/index.ts",
-    "build": "bun build --compile --minify src/index.ts --outfile dist/mcp-cli",
-    "build:linux": "bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile dist/mcp-cli-linux-x64",
-    "build:linux-arm": "bun build --compile --minify --target=bun-linux-arm64 src/index.ts --outfile dist/mcp-cli-linux-arm64",
-    "build:macos": "bun build --compile --minify --target=bun-darwin-x64 src/index.ts --outfile dist/mcp-cli-darwin-x64",
-    "build:macos-arm": "bun build --compile --minify --target=bun-darwin-arm64 src/index.ts --outfile dist/mcp-cli-darwin-arm64",
-    "build:windows": "bun build --compile --minify --target=bun-windows-x64 src/index.ts --outfile dist/mcp-cli-windows-x64.exe",
+    "build": "bun build --compile --minify src/index.ts --outfile dist/mcpx",
+    "build:linux": "bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile dist/mcpx-linux-x64",
+    "build:linux-arm": "bun build --compile --minify --target=bun-linux-arm64 src/index.ts --outfile dist/mcpx-linux-arm64",
+    "build:macos": "bun build --compile --minify --target=bun-darwin-x64 src/index.ts --outfile dist/mcpx-darwin-x64",
+    "build:macos-arm": "bun build --compile --minify --target=bun-darwin-arm64 src/index.ts --outfile dist/mcpx-darwin-arm64",
+    "build:windows": "bun build --compile --minify --target=bun-windows-x64 src/index.ts --outfile dist/mcpx-windows-x64.exe",
     "build:all": "bun run build:linux && bun run build:linux-arm && bun run build:macos && bun run build:macos-arm && bun run build:windows",
     "test": "bun test",
     "test:integration": "bun test --timeout 30000 tests/integration",
@@ -43,12 +43,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/philschmid/mcp-cli"
+    "url": "https://github.com/cs50victor/mcpx"
   },
   "bugs": {
-    "url": "https://github.com/philschmid/mcp-cli/issues"
+    "url": "https://github.com/cs50victor/mcpx/issues"
   },
-  "homepage": "https://github.com/philschmid/mcp-cli#readme",
+  "homepage": "https://github.com/cs50victor/mcpx#readme",
   "engines": {
     "bun": ">=1.0.0"
   }

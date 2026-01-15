@@ -1,5 +1,5 @@
 #!/bin/bash
-# Release script for mcp-cli
+# Release script for mcpx
 # Usage: ./scripts/release.sh <version>
 # Example: ./scripts/release.sh 0.1.0
 
@@ -28,10 +28,10 @@ if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 
-# Check if we're on main branch
+# Check if we're on dev branch
 CURRENT_BRANCH=$(git branch --show-current)
-if [ "$CURRENT_BRANCH" != "main" ]; then
-    echo -e "${YELLOW}Warning: Not on main branch (current: $CURRENT_BRANCH)${NC}"
+if [ "$CURRENT_BRANCH" != "dev" ]; then
+    echo -e "${YELLOW}Warning: Not on dev branch (current: $CURRENT_BRANCH)${NC}"
     read -p "Continue anyway? (y/N) " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -92,7 +92,7 @@ git tag -a "v$VERSION" -m "Release v$VERSION"
 
 # Push changes and tag
 echo "Pushing to origin..."
-git push origin main
+git push origin dev
 git push origin "v$VERSION"
 
 echo ""
@@ -104,4 +104,4 @@ echo "  2. Build binaries for Linux and macOS"
 echo "  3. Create the GitHub release"
 echo ""
 echo "Monitor the release at:"
-echo "  https://github.com/philschmid/mcp-cli/actions"
+echo "  https://github.com/cs50victor/mcpx/actions"

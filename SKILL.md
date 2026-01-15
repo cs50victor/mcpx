@@ -1,9 +1,9 @@
 ---
-name: mcp-cli
+name: mcpx
 description: Interface for MCP (Model Context Protocol) servers via CLI. Use when you need to interact with external tools, APIs, or data sources through MCP servers.
 ---
 
-# MCP-CLI
+# mcpx
 
 Access MCP servers through the command line. MCP enables interaction with external systems like GitHub, filesystems, databases, and APIs.
 
@@ -11,55 +11,55 @@ Access MCP servers through the command line. MCP enables interaction with extern
 
 | Command | Output |
 |---------|--------|
-| `mcp-cli` | List all servers and tool names |
-| `mcp-cli <server>` | Show tools with parameters |
-| `mcp-cli <server>/<tool>` | Get tool JSON schema |
-| `mcp-cli <server>/<tool> '<json>'` | Call tool with arguments |
-| `mcp-cli grep "<glob>"` | Search tools by name |
+| `mcpx` | List all servers and tool names |
+| `mcpx <server>` | Show tools with parameters |
+| `mcpx <server>/<tool>` | Get tool JSON schema |
+| `mcpx <server>/<tool> '<json>'` | Call tool with arguments |
+| `mcpx grep "<glob>"` | Search tools by name |
 
-**Add `-d` to include descriptions** (e.g., `mcp-cli filesystem -d`)
+**Add `-d` to include descriptions** (e.g., `mcpx filesystem -d`)
 
 ## Workflow
 
-1. **Discover**: `mcp-cli` → see available servers and tools
-2. **Explore**: `mcp-cli <server>` → see tools with parameters
-3. **Inspect**: `mcp-cli <server>/<tool>` → get full JSON input schema
-4. **Execute**: `mcp-cli <server>/<tool> '<json>'` → run with arguments
+1. **Discover**: `mcpx` → see available servers and tools
+2. **Explore**: `mcpx <server>` → see tools with parameters
+3. **Inspect**: `mcpx <server>/<tool>` → get full JSON input schema
+4. **Execute**: `mcpx <server>/<tool> '<json>'` → run with arguments
 
 ## Examples
 
 ```bash
 # List all servers and tool names
-mcp-cli
+mcpx
 
 # See all tools with parameters
-mcp-cli filesystem
+mcpx filesystem
 
 # With descriptions (more verbose)
-mcp-cli filesystem -d
+mcpx filesystem -d
 
 # Get JSON schema for specific tool
-mcp-cli filesystem/read_file
+mcpx filesystem/read_file
 
 # Call the tool
-mcp-cli filesystem/read_file '{"path": "./README.md"}'
+mcpx filesystem/read_file '{"path": "./README.md"}'
 
 # Search for tools
-mcp-cli grep "*file*"
+mcpx grep "*file*"
 
 # JSON output for parsing
-mcp-cli filesystem/read_file '{"path": "./README.md"}' --json
+mcpx filesystem/read_file '{"path": "./README.md"}' --json
 
 # Complex JSON with quotes (use '-' for stdin input)
-mcp-cli server/tool - <<EOF
+mcpx server/tool - <<EOF
 {"content": "Text with 'quotes' inside"}
 EOF
 
 # Or pipe from a file/command
-cat args.json | mcp-cli server/tool -
+cat args.json | mcpx server/tool -
 
 # Complex Command chaining with xargs and jq
-mcp-cli filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcp-cli filesystem/read_file "{\"path\": \"{}\"}"'
+mcpx filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcpx filesystem/read_file "{\"path\": \"{}\"}"'
 ```
 
 
