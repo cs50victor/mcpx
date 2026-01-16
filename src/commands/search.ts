@@ -19,12 +19,17 @@ import {
 } from '../config.js';
 import { globToRegex } from '../glob.js';
 import { formatJson } from '../output.js';
-import { type RegistryServer, searchRegistry } from '../registry.js';
+import {
+  type SmitheryServer,
+  formatStarCount,
+  searchRegistry,
+} from '../registry.js';
 
 export interface SearchOptions {
   query: string;
   localOnly: boolean;
-  registryOnly: boolean;
+  verified: boolean;
+  limit: number;
   withDescriptions: boolean;
   json: boolean;
   configPath?: string;
@@ -38,8 +43,11 @@ interface LocalResult {
 
 interface RegistryResult {
   name: string;
+  displayName: string;
   description: string;
-  transport: string;
+  githubStars: number;
+  verified: boolean;
+  remote: boolean;
 }
 
 interface SearchResults {
@@ -116,32 +124,24 @@ async function searchLocalTools(
   return results;
 }
 
-async function searchRegistryServers(query: string): Promise<RegistryResult[]> {
+async function searchRegistryServers(
+  query: string,
+  options: { verified?: boolean; limit?: number },
+): Promise<RegistryResult[]> {
   try {
-    const servers = await searchRegistry(query);
-    return servers.map((server) => ({
-      name: server.name,
+    const servers = await searchRegistry(query, options);
+    return servers.map((server: SmitheryServer) => ({
+      name: server.qualifiedName,
+      displayName: server.displayName,
       description: server.description,
-      transport: getPreferredTransport(server),
+      githubStars: server.githubStars,
+      verified: server.verified,
+      remote: server.remote,
     }));
   } catch (error) {
     debug(`Registry search failed: ${(error as Error).message}`);
     return [];
   }
-}
-
-function getPreferredTransport(server: RegistryServer): string {
-  if (!server.packages || server.packages.length === 0) {
-    return 'unknown';
-  }
-
-  for (const pkg of server.packages) {
-    if (pkg.transport.type === 'stdio') {
-      return 'stdio';
-    }
-  }
-
-  return server.packages[0].transport.type;
 }
 
 function formatLocalResults(
@@ -169,12 +169,19 @@ function formatRegistryResults(
   const lines: string[] = [];
 
   for (const result of results) {
-    const entry = `  ${result.name} [${result.transport}]`;
+    const starsStr = formatStarCount(result.githubStars);
+    const verifiedBadge = result.verified ? ' [official]' : '';
+    const typeTag = result.remote ? '[remote]' : '[local]';
+
+    let entry = `  ${result.name} (${starsStr} stars)${verifiedBadge} ${typeTag}`;
     if (withDescriptions && result.description) {
-      lines.push(`${entry} - ${result.description}`);
-    } else {
-      lines.push(entry);
+      const desc =
+        result.description.length > 60
+          ? `${result.description.slice(0, 57)}...`
+          : result.description;
+      entry += ` - ${desc}`;
     }
+    lines.push(entry);
   }
 
   return lines.join('\n');
@@ -188,7 +195,7 @@ export async function searchCommand(options: SearchOptions): Promise<void> {
 
   const searches: Promise<void>[] = [];
 
-  if (!options.registryOnly) {
+  if (options.localOnly) {
     searches.push(
       (async () => {
         try {
@@ -206,12 +213,13 @@ export async function searchCommand(options: SearchOptions): Promise<void> {
         }
       })(),
     );
-  }
-
-  if (!options.localOnly) {
+  } else {
     searches.push(
       (async () => {
-        results.registry = await searchRegistryServers(options.query);
+        results.registry = await searchRegistryServers(options.query, {
+          verified: options.verified,
+          limit: options.limit,
+        });
       })(),
     );
   }
@@ -233,16 +241,16 @@ export async function searchCommand(options: SearchOptions): Promise<void> {
 
   const output: string[] = [];
 
-  if (!options.registryOnly && hasLocal) {
+  if (hasLocal) {
     output.push('Local:');
     output.push(formatLocalResults(results.local, options.withDescriptions));
   }
 
-  if (!options.localOnly && hasRegistry) {
-    if (output.length > 0) {
-      output.push('');
-    }
-    output.push('Registry:');
+  if (hasRegistry) {
+    const sortedText = 'sorted by stars';
+    output.push(
+      `Registry (${results.registry.length} results, ${sortedText}):`,
+    );
     output.push(
       formatRegistryResults(results.registry, options.withDescriptions),
     );

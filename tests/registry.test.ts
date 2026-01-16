@@ -1,13 +1,15 @@
 /**
- * Tests for registry module - remote MCP server registry API
+ * Tests for registry module - Smithery registry API
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
-  type RegistryPackage,
-  type RegistryServer,
+  type SmitheryServer,
+  type SmitheryServerDetail,
+  formatStarCount,
   getRegistryServer,
   getRegistryUrl,
+  parseStdioFunction,
   searchRegistry,
 } from '../src/registry.js';
 
@@ -23,10 +25,10 @@ describe('registry', () => {
   });
 
   describe('getRegistryUrl', () => {
-    test('returns default URL when env not set', () => {
+    test('returns default Smithery URL when env not set', () => {
       delete process.env.MCP_REGISTRY_URL;
       const url = getRegistryUrl();
-      expect(url).toBe('https://registry.modelcontextprotocol.io');
+      expect(url).toBe('https://registry.smithery.ai');
     });
 
     test('returns custom URL from env var', () => {
@@ -43,21 +45,27 @@ describe('registry', () => {
   });
 
   describe('searchRegistry', () => {
-    test('returns array of RegistryServer objects', async () => {
-      const results = await searchRegistry('filesystem');
+    test('returns array of SmitheryServer objects', async () => {
+      const results = await searchRegistry('github');
       expect(Array.isArray(results)).toBe(true);
       expect(results.length).toBeGreaterThan(0);
       const server = results[0];
-      expect(server).toHaveProperty('name');
+      expect(server).toHaveProperty('qualifiedName');
+      expect(server).toHaveProperty('displayName');
       expect(server).toHaveProperty('description');
-      expect(server).toHaveProperty('packages');
-      expect(Array.isArray(server.packages)).toBe(true);
+      expect(server).toHaveProperty('verified');
+      expect(server).toHaveProperty('githubStars');
+      expect(typeof server.githubStars).toBe('number');
     });
 
-    test('returns empty array for no matches', async () => {
+    test('returns array even for obscure queries', async () => {
       const results = await searchRegistry('xyznonexistent12345zzz');
       expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(0);
+    });
+
+    test('respects limit option', async () => {
+      const results = await searchRegistry('mcp', { limit: 5 });
+      expect(results.length).toBeLessThanOrEqual(5);
     });
 
     test('throws on network error with invalid URL', async () => {
@@ -68,84 +76,118 @@ describe('registry', () => {
 
   describe('getRegistryServer', () => {
     test('returns server details for valid name', async () => {
-      const server = await getRegistryServer(
-        'io.github.bytedance/mcp-server-filesystem',
-      );
+      const server = await getRegistryServer('github');
       expect(server).not.toBeNull();
-      expect(server!.name).toBe('io.github.bytedance/mcp-server-filesystem');
-      expect(server).toHaveProperty('description');
-      expect(server).toHaveProperty('packages');
+      expect(server!.qualifiedName).toBe('github');
+      expect(server).toHaveProperty('displayName');
+      expect(server).toHaveProperty('connections');
+      expect(Array.isArray(server!.connections)).toBe(true);
     });
 
     test('returns null for non-existent server', async () => {
       const server = await getRegistryServer(
-        'nonexistent.vendor/nonexistent-server-12345',
+        'nonexistent-server-12345-xyz-abc',
       );
       expect(server).toBeNull();
     });
+
+    test('includes tools in server details', async () => {
+      const server = await getRegistryServer('github');
+      expect(server).not.toBeNull();
+      expect(server).toHaveProperty('tools');
+      expect(Array.isArray(server!.tools)).toBe(true);
+    });
   });
 
-  describe('RegistryServer type', () => {
+  describe('parseStdioFunction', () => {
+    test('parses npx command', () => {
+      const fn = "config => ({command: 'npx', args: ['-y', '@pkg/name']})";
+      const result = parseStdioFunction(fn);
+      expect(result).not.toBeNull();
+      expect(result!.command).toBe('npx');
+      expect(result!.args).toEqual(['-y', '@pkg/name']);
+    });
+
+    test('parses node command', () => {
+      const fn = "config => ({command: 'node', args: ['./dist/index.js']})";
+      const result = parseStdioFunction(fn);
+      expect(result).not.toBeNull();
+      expect(result!.command).toBe('node');
+      expect(result!.args).toEqual(['./dist/index.js']);
+    });
+
+    test('returns null for invalid format', () => {
+      const fn = 'invalid function';
+      const result = parseStdioFunction(fn);
+      expect(result).toBeNull();
+    });
+
+    test('handles double quotes', () => {
+      const fn = 'config => ({command: "uvx", args: ["mcp-server"]})';
+      const result = parseStdioFunction(fn);
+      expect(result).not.toBeNull();
+      expect(result!.command).toBe('uvx');
+      expect(result!.args).toEqual(['mcp-server']);
+    });
+  });
+
+  describe('formatStarCount', () => {
+    test('formats small numbers as-is', () => {
+      expect(formatStarCount(0)).toBe('0');
+      expect(formatStarCount(100)).toBe('100');
+      expect(formatStarCount(999)).toBe('999');
+    });
+
+    test('formats thousands with k suffix', () => {
+      expect(formatStarCount(1000)).toBe('1k');
+      expect(formatStarCount(1500)).toBe('1.5k');
+      expect(formatStarCount(9881)).toBe('9.9k');
+      expect(formatStarCount(26878)).toBe('26.9k');
+    });
+  });
+
+  describe('SmitheryServer type', () => {
     test('has expected properties', () => {
-      const server: RegistryServer = {
-        name: 'io.github.vendor/server-test',
-        description: 'Test server',
-        repository: { url: 'https://github.com/vendor/server-test' },
-        packages: [
+      const server: SmitheryServer = {
+        qualifiedName: 'github',
+        displayName: 'GitHub',
+        description: 'GitHub API access',
+        verified: true,
+        githubStars: 5828,
+        remote: true,
+        homepage: 'https://github.com/example/mcp-github',
+      };
+
+      expect(server.qualifiedName).toBe('github');
+      expect(server.verified).toBe(true);
+      expect(server.githubStars).toBe(5828);
+      expect(server.remote).toBe(true);
+    });
+  });
+
+  describe('SmitheryServerDetail type', () => {
+    test('has connections and tools', () => {
+      const server: SmitheryServerDetail = {
+        qualifiedName: '@flrngel/mcp-painter',
+        displayName: 'Drawing Tool',
+        description: 'Drawing tool for AI',
+        remote: false,
+        connections: [
           {
-            registryType: 'npm',
-            identifier: '@vendor/server-test',
-            version: '1.0.0',
-            transport: { type: 'stdio' },
+            type: 'stdio',
+            stdioFunction: "config => ({command: 'npx', args: ['-y', '@flrngel/mcp-painter']})",
           },
         ],
-      };
-
-      expect(server.name).toBe('io.github.vendor/server-test');
-      expect(server.packages[0].transport.type).toBe('stdio');
-    });
-  });
-
-  describe('RegistryPackage type', () => {
-    test('supports stdio transport', () => {
-      const pkg: RegistryPackage = {
-        registryType: 'npm',
-        identifier: '@modelcontextprotocol/server-filesystem',
-        version: '1.0.0',
-        transport: { type: 'stdio' },
-      };
-
-      expect(pkg.transport.type).toBe('stdio');
-    });
-
-    test('supports sse transport', () => {
-      const pkg: RegistryPackage = {
-        registryType: 'npm',
-        identifier: '@vendor/http-server',
-        version: '2.0.0',
-        transport: { type: 'sse', url: 'http://localhost:3000/sse' },
-      };
-
-      expect(pkg.transport.type).toBe('sse');
-      expect(pkg.transport.url).toBe('http://localhost:3000/sse');
-    });
-
-    test('supports package arguments', () => {
-      const pkg: RegistryPackage = {
-        registryType: 'npm',
-        identifier: '@vendor/server',
-        version: '1.0.0',
-        transport: { type: 'stdio' },
-        packageArguments: [
-          { name: '--port', description: 'Server port', isRequired: false },
-        ],
-        environmentVariables: [
-          { name: 'API_KEY', description: 'API key', isRequired: true },
+        security: { scanPassed: true },
+        tools: [
+          { name: 'create_canvas', description: 'Create a new canvas' },
         ],
       };
 
-      expect(pkg.packageArguments).toHaveLength(1);
-      expect(pkg.environmentVariables).toHaveLength(1);
+      expect(server.connections).toHaveLength(1);
+      expect(server.connections[0].type).toBe('stdio');
+      expect(server.tools).toHaveLength(1);
+      expect(server.security?.scanPassed).toBe(true);
     });
   });
 });

@@ -1,50 +1,66 @@
 /**
- * Remote MCP server registry API client
+ * Smithery registry API client
  *
- * API: https://registry.modelcontextprotocol.io/docs
+ * API: https://registry.smithery.ai
  */
 
-const DEFAULT_REGISTRY_URL = 'https://registry.modelcontextprotocol.io';
+const DEFAULT_REGISTRY_URL = 'https://registry.smithery.ai';
 
-export interface RegistryTransport {
-  type: 'stdio' | 'sse' | 'streamable-http';
-  url?: string;
+export interface SmitheryServer {
+  qualifiedName: string;
+  displayName: string;
+  description: string;
+  verified: boolean;
+  githubStars: number;
+  remote: boolean;
+  homepage: string;
 }
 
-export interface RegistryPackageArgument {
+export interface SmitheryTool {
   name: string;
   description?: string;
-  isRequired?: boolean;
-  format?: string;
+}
+
+export interface SmitheryConnection {
+  type: 'stdio' | 'http';
+  stdioFunction?: string;
+  deploymentUrl?: string;
+  configSchema?: JSONSchema;
+}
+
+export interface JSONSchema {
   type?: string;
+  properties?: Record<string, JSONSchema>;
+  required?: string[];
+  description?: string;
+  default?: unknown;
 }
 
-export interface RegistryPackage {
-  registryType: string;
-  identifier: string;
-  version: string;
-  transport: RegistryTransport;
-  runtimeHint?: string;
-  packageArguments?: RegistryPackageArgument[];
-  environmentVariables?: RegistryPackageArgument[];
-}
-
-export interface RegistryServer {
-  name: string;
+export interface SmitheryServerDetail {
+  qualifiedName: string;
+  displayName: string;
   description: string;
-  version?: string;
-  repository?: { url: string; source?: string; subfolder?: string };
-  packages: RegistryPackage[];
+  remote: boolean;
+  connections: SmitheryConnection[];
+  security: { scanPassed: boolean } | null;
+  tools: SmitheryTool[];
 }
 
-interface ServerWrapper {
-  server: RegistryServer;
-  _meta?: Record<string, unknown>;
+// Raw API response may have useCount (Smithery) or githubStars (our registry)
+interface RawServer {
+  qualifiedName: string;
+  displayName: string;
+  description: string;
+  verified: boolean;
+  useCount?: number;
+  githubStars?: number;
+  remote: boolean;
+  homepage: string;
 }
 
 interface SearchResponse {
-  servers: ServerWrapper[];
-  metadata?: { nextCursor?: string; count?: number };
+  servers: RawServer[];
+  pagination?: { total: number };
 }
 
 export function getRegistryUrl(): string {
@@ -52,9 +68,25 @@ export function getRegistryUrl(): string {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
-export async function searchRegistry(query: string): Promise<RegistryServer[]> {
+export interface SearchOptions {
+  verified?: boolean;
+  limit?: number;
+}
+
+export async function searchRegistry(
+  query: string,
+  options: SearchOptions = {},
+): Promise<SmitheryServer[]> {
   const baseUrl = getRegistryUrl();
-  const url = `${baseUrl}/v0/servers?search=${encodeURIComponent(query)}&version=latest&limit=100`;
+  const params = new URLSearchParams({
+    q: query,
+    pageSize: String(options.limit ?? 20),
+  });
+  if (options.verified) {
+    params.set('verified', 'true');
+  }
+
+  const url = `${baseUrl}/servers?${params}`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -64,15 +96,18 @@ export async function searchRegistry(query: string): Promise<RegistryServer[]> {
   }
 
   const data = (await response.json()) as SearchResponse;
-  return (data.servers || []).map((w) => w.server);
+  // Normalize useCount (Smithery) to githubStars (our registry)
+  return (data.servers || []).map((server) => ({
+    ...server,
+    githubStars: server.githubStars ?? server.useCount ?? 0,
+  }));
 }
 
 export async function getRegistryServer(
-  name: string,
-): Promise<RegistryServer | null> {
+  qualifiedName: string,
+): Promise<SmitheryServerDetail | null> {
   const baseUrl = getRegistryUrl();
-  const encodedName = encodeURIComponent(name);
-  const url = `${baseUrl}/v0/servers/${encodedName}/versions/latest`;
+  const url = `${baseUrl}/servers/${encodeURIComponent(qualifiedName)}`;
 
   const response = await fetch(url);
   if (response.status === 404) {
@@ -84,6 +119,39 @@ export async function getRegistryServer(
     );
   }
 
-  const data = (await response.json()) as ServerWrapper;
-  return data.server;
+  return (await response.json()) as SmitheryServerDetail;
+}
+
+export interface ParsedStdioConfig {
+  command: string;
+  args: string[];
+}
+
+export function parseStdioFunction(fn: string): ParsedStdioConfig | null {
+  try {
+    const commandMatch = fn.match(/command:\s*['"`]([^'"`]+)['"`]/);
+    if (!commandMatch) return null;
+
+    const command = commandMatch[1];
+    const args: string[] = [];
+
+    const argsMatch = fn.match(/args:\s*\[([^\]]*)\]/);
+    if (argsMatch) {
+      const argMatches = argsMatch[1].matchAll(/['"`]([^'"`]*)['"`]/g);
+      for (const m of argMatches) {
+        args.push(m[1]);
+      }
+    }
+
+    return { command, args };
+  } catch {
+    return null;
+  }
+}
+
+export function formatStarCount(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  return String(count);
 }

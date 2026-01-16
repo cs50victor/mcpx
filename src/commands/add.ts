@@ -1,14 +1,15 @@
 /**
- * Add command - add registry server to local config
+ * Add command - add Smithery registry server to local config
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { ErrorCode, formatCliError } from '../errors.js';
 import { formatJson } from '../output.js';
 import {
-  type RegistryPackage,
-  type RegistryServer,
+  type SmitheryConnection,
+  type SmitheryServerDetail,
   getRegistryServer,
+  parseStdioFunction,
 } from '../registry.js';
 
 export interface AddOptions {
@@ -17,6 +18,7 @@ export interface AddOptions {
   dryRun: boolean;
   json: boolean;
   configPath: string;
+  preferLocal: boolean;
 }
 
 interface StdioConfig {
@@ -25,14 +27,23 @@ interface StdioConfig {
   env?: Record<string, string>;
 }
 
-interface AddResult {
-  name: string;
-  config: StdioConfig;
-  envVars?: string[];
+interface HttpConfig {
+  url: string;
+  transport: 'streamable-http';
 }
 
-function deriveLocalName(registryName: string): string {
-  const parts = registryName.split('/');
+type ServerConfig = StdioConfig | HttpConfig;
+
+interface AddResult {
+  name: string;
+  config: ServerConfig;
+  remote: boolean;
+  security?: string;
+  configRequired?: string[];
+}
+
+function deriveLocalName(qualifiedName: string): string {
+  const parts = qualifiedName.split('/');
   let name = parts[parts.length - 1];
 
   name = name.replace(/^mcp-/, '');
@@ -43,47 +54,69 @@ function deriveLocalName(registryName: string): string {
   return name;
 }
 
-function selectPackage(server: RegistryServer): RegistryPackage | null {
-  if (!server.packages || server.packages.length === 0) {
+function selectConnection(
+  server: SmitheryServerDetail,
+  preferLocal: boolean,
+): SmitheryConnection | null {
+  if (!server.connections || server.connections.length === 0) {
     return null;
   }
 
-  for (const pkg of server.packages) {
-    if (pkg.transport.type === 'stdio') {
-      return pkg;
-    }
-  }
-
-  return server.packages[0];
-}
-
-function packageToConfig(pkg: RegistryPackage): StdioConfig {
-  const runtime = pkg.runtimeHint || 'npx';
-
-  if (pkg.registryType === 'npm') {
-    return {
-      command: runtime,
-      args: runtime === 'npx' ? ['-y', pkg.identifier] : [pkg.identifier],
-    };
-  }
-
-  return {
-    command: pkg.identifier,
-  };
-}
-
-function getRequiredEnvVars(pkg: RegistryPackage): string[] {
-  const envVars: string[] = [];
-
-  if (pkg.environmentVariables) {
-    for (const env of pkg.environmentVariables) {
-      if (env.isRequired) {
-        envVars.push(env.name);
+  if (preferLocal) {
+    for (const conn of server.connections) {
+      if (conn.type === 'stdio' && conn.stdioFunction) {
+        return conn;
       }
     }
   }
 
-  return envVars;
+  for (const conn of server.connections) {
+    if (conn.type === 'http' && conn.deploymentUrl) {
+      return conn;
+    }
+  }
+
+  for (const conn of server.connections) {
+    if (conn.type === 'stdio' && conn.stdioFunction) {
+      return conn;
+    }
+  }
+
+  return server.connections[0];
+}
+
+function connectionToConfig(
+  _server: SmitheryServerDetail,
+  conn: SmitheryConnection,
+): ServerConfig | null {
+  if (conn.type === 'http' && conn.deploymentUrl) {
+    return {
+      url: conn.deploymentUrl,
+      transport: 'streamable-http',
+    };
+  }
+
+  if (conn.type === 'stdio' && conn.stdioFunction) {
+    const parsed = parseStdioFunction(conn.stdioFunction);
+    if (parsed) {
+      return {
+        command: parsed.command,
+        args: parsed.args.length > 0 ? parsed.args : undefined,
+      };
+    }
+  }
+
+  return null;
+}
+
+function getRequiredConfigFields(conn: SmitheryConnection): string[] {
+  const required: string[] = [];
+
+  if (conn.configSchema?.required) {
+    required.push(...conn.configSchema.required);
+  }
+
+  return required;
 }
 
 function formatTextOutput(result: AddResult, dryRun: boolean): string {
@@ -91,18 +124,32 @@ function formatTextOutput(result: AddResult, dryRun: boolean): string {
   const action = dryRun ? 'Would add' : 'Added';
 
   lines.push(`${action} "${result.name}":`);
-  lines.push(`  command: ${result.config.command}`);
 
-  if (result.config.args && result.config.args.length > 0) {
-    lines.push(`  args: ${result.config.args.join(' ')}`);
+  if ('url' in result.config) {
+    lines.push(`  url: ${result.config.url}`);
+    lines.push(`  transport: ${result.config.transport}`);
+  } else {
+    lines.push(`  command: ${result.config.command}`);
+    if (result.config.args && result.config.args.length > 0) {
+      lines.push(`  args: ${result.config.args.join(' ')}`);
+    }
   }
 
-  if (result.envVars && result.envVars.length > 0) {
+  lines.push(`  type: ${result.remote ? 'remote' : 'local'}`);
+
+  if (result.security) {
+    lines.push(`  security: ${result.security}`);
+  }
+
+  if (result.configRequired && result.configRequired.length > 0) {
     lines.push('');
-    lines.push('Required environment variables:');
-    for (const envVar of result.envVars) {
-      lines.push(`  export ${envVar}="<value>"`);
+    lines.push('Configuration required:');
+    for (const field of result.configRequired) {
+      lines.push(`  - ${field}`);
     }
+  } else {
+    lines.push('');
+    lines.push('No configuration required');
   }
 
   return lines.join('\n');
@@ -123,23 +170,39 @@ export async function addCommand(options: AddOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
-  const pkg = selectPackage(server);
+  const conn = selectConnection(server, options.preferLocal);
 
-  if (!pkg) {
+  if (!conn) {
     console.error(
       formatCliError({
         code: ErrorCode.CLIENT_ERROR,
-        type: 'NO_PACKAGES',
-        message: `Server "${options.serverName}" has no installable packages`,
+        type: 'NO_CONNECTIONS',
+        message: `Server "${options.serverName}" has no installable connections`,
         suggestion: 'Check the registry for alternative servers',
       }),
     );
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
+  const config = connectionToConfig(server, conn);
+
+  if (!config) {
+    const rawStdio = conn.stdioFunction
+      ? `\nRaw stdioFunction: ${conn.stdioFunction}`
+      : '';
+    console.error(
+      formatCliError({
+        code: ErrorCode.CLIENT_ERROR,
+        type: 'INVALID_CONNECTION',
+        message: `Could not parse connection for "${options.serverName}"`,
+        suggestion: `The server connection format is not supported. Manually add to your config.${rawStdio}`,
+      }),
+    );
+    process.exit(ErrorCode.CLIENT_ERROR);
+  }
+
   const localName = options.alias || deriveLocalName(options.serverName);
-  const config = packageToConfig(pkg);
-  const envVars = getRequiredEnvVars(pkg);
+  const configRequired = getRequiredConfigFields(conn);
 
   let existingConfig: { mcpServers: Record<string, unknown> };
 
@@ -168,7 +231,9 @@ export async function addCommand(options: AddOptions): Promise<void> {
   const result: AddResult = {
     name: localName,
     config,
-    envVars: envVars.length > 0 ? envVars : undefined,
+    remote: server.remote,
+    security: server.security?.scanPassed ? 'passed' : undefined,
+    configRequired: configRequired.length > 0 ? configRequired : undefined,
   };
 
   if (options.dryRun) {

@@ -53,8 +53,10 @@ interface ParsedArgs {
   withDescriptions: boolean;
   configPath?: string;
   localOnly: boolean;
-  registryOnly: boolean;
+  verified: boolean;
+  limit: number;
   dryRun: boolean;
+  preferLocal: boolean;
 }
 
 /**
@@ -66,8 +68,10 @@ function parseArgs(args: string[]): ParsedArgs {
     json: false,
     withDescriptions: false,
     localOnly: false,
-    registryOnly: false,
+    verified: false,
+    limit: 20,
     dryRun: false,
+    preferLocal: false,
   };
 
   const positional: string[] = [];
@@ -105,12 +109,20 @@ function parseArgs(args: string[]): ParsedArgs {
         result.localOnly = true;
         break;
 
-      case '--registry':
-        result.registryOnly = true;
+      case '--verified':
+        result.verified = true;
+        break;
+
+      case '--limit':
+        result.limit = Number.parseInt(args[++i], 10) || 20;
         break;
 
       case '--dry-run':
         result.dryRun = true;
+        break;
+
+      case '--prefer-local':
+        result.preferLocal = true;
         break;
 
       case '--as':
@@ -184,7 +196,9 @@ Usage:
   mcpx [options]                           List all servers and tools
   mcpx [options] config                    Show config file locations
   mcpx [options] grep <pattern>            Search tools by glob pattern
-  mcpx [options] <server>                  Show server tools and parameters
+  mcpx [options] search <query>            Search Smithery registry
+  mcpx [options] add <server>              Add registry server to config
+  mcpx [options] <server>                  Show server/registry info
   mcpx [options] <server>/<tool>           Show tool schema and description
   mcpx [options] <server>/<tool> <json>    Call tool with arguments
 
@@ -195,9 +209,39 @@ Options:
   -d, --with-descriptions  Include tool descriptions
   -c, --config <path>      Path to mcp_servers.json config file
 
+Search Options:
+  --local                  Search local servers only (skip registry)
+  --verified               Filter to verified servers only
+  --limit <n>              Limit results (default: 20)
+
+Add Options:
+  --as <alias>             Use custom local name
+  --dry-run                Show what would be added without modifying config
+  --prefer-local           Prefer local (stdio) over remote (http) connection
+
 Output:
   stdout                   Tool results and data (default: text, --json for JSON)
   stderr                   Errors and diagnostics
+
+Config File:
+  The CLI looks for mcp_servers.json in:
+    1. Path specified by MCP_CONFIG_PATH or -c/--config
+    2. ./mcp_servers.json (current directory)
+    3. ~/.mcp_servers.json
+    4. ~/.config/mcp/mcp_servers.json
+
+Examples:
+  mcpx                                    # List all servers
+  mcpx -d                                 # List with descriptions
+  mcpx grep "*file*"                      # Search for file tools
+  mcpx search github                      # Search registry for github servers
+  mcpx search --verified gmail            # Search verified servers only
+  mcpx add github --dry-run               # Preview adding github server
+  mcpx add github --as gh                 # Add with custom alias
+  mcpx github                             # Show server info (local or registry)
+  mcpx filesystem/read_file               # Show tool schema
+  mcpx filesystem/read_file '{"path":"./README.md"}'  # Call tool
+  echo '{"path":"./file"}' | mcpx server/tool -       # Read JSON from stdin
 
 Environment Variables:
   MCP_CONFIG_PATH          Path to config file (alternative to -c)
@@ -207,22 +251,6 @@ Environment Variables:
   MCP_MAX_RETRIES          Max retry attempts for transient errors (default: ${DEFAULT_MAX_RETRIES})
   MCP_RETRY_DELAY          Base retry delay in milliseconds (default: ${DEFAULT_RETRY_DELAY_MS})
   MCP_STRICT_ENV           Set to "false" to warn on missing env vars (default: true)
-
-Examples:
-  mcpx                                    # List all servers
-  mcpx -d                                 # List with descriptions
-  mcpx grep "*file*"                      # Search for file tools
-  mcpx filesystem                         # Show server tools
-  mcpx filesystem/read_file               # Show tool schema
-  mcpx filesystem/read_file '{"path":"./README.md"}'  # Call tool
-  echo '{"path":"./file"}' | mcpx server/tool -       # Read JSON from stdin
-
-Config File:
-  The CLI looks for mcp_servers.json in:
-    1. Path specified by MCP_CONFIG_PATH or -c/--config
-    2. ./mcp_servers.json (current directory)
-    3. ~/.mcp_servers.json
-    4. ~/.config/mcp/mcp_servers.json
 `);
 }
 
@@ -262,7 +290,8 @@ async function main(): Promise<void> {
       await searchCommand({
         query: args.query ?? '',
         localOnly: args.localOnly,
-        registryOnly: args.registryOnly,
+        verified: args.verified,
+        limit: args.limit,
         withDescriptions: args.withDescriptions,
         json: args.json,
         configPath: args.configPath,
@@ -276,6 +305,7 @@ async function main(): Promise<void> {
         dryRun: args.dryRun,
         json: args.json,
         configPath: args.configPath ?? './mcp_servers.json',
+        preferLocal: args.preferLocal,
       });
       break;
 

@@ -1,5 +1,5 @@
 /**
- * Tests for add command - add registry servers to local config
+ * Tests for add command - add Smithery registry servers to local config
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
@@ -46,54 +46,43 @@ describe('add command', () => {
 
   describe('--dry-run flag', () => {
     test('shows what would be added without modifying config', async () => {
-      const result = await runCli([
-        'add',
-        'io.github.bytedance/mcp-server-filesystem',
-        '--dry-run',
-      ]);
+      const result = await runCli(['add', 'github', '--dry-run']);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Would add');
 
-      // Config should not be modified
       const config = await readConfig();
       expect(Object.keys(config.mcpServers as object)).toHaveLength(0);
     });
 
-    test('dry-run shows derived local name', async () => {
-      const result = await runCli([
-        'add',
-        'io.github.bytedance/mcp-server-filesystem',
-        '--dry-run',
-      ]);
+    test('dry-run shows server type', async () => {
+      const result = await runCli(['add', 'github', '--dry-run']);
 
       expect(result.exitCode).toBe(0);
-      // Should derive a short name like "filesystem" from the full name
-      expect(result.stdout).toMatch(/filesystem|mcp-server-filesystem/);
+      expect(result.stdout).toMatch(/type:/);
+    });
+
+    test('dry-run shows HTTP config for remote servers', async () => {
+      const result = await runCli(['add', 'github', '--dry-run']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('url:');
+      expect(result.stdout).toContain('transport: streamable-http');
     });
   });
 
   describe('--as flag (custom alias)', () => {
     test('uses custom alias instead of derived name', async () => {
-      const result = await runCli([
-        'add',
-        'io.github.bytedance/mcp-server-filesystem',
-        '--as',
-        'fs',
-        '--dry-run',
-      ]);
+      const result = await runCli(['add', 'github', '--as', 'gh', '--dry-run']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('fs');
+      expect(result.stdout).toContain('"gh"');
     });
   });
 
   describe('basic add', () => {
     test('adds server to config', async () => {
-      const result = await runCli([
-        'add',
-        'io.github.bytedance/mcp-server-filesystem',
-      ]);
+      const result = await runCli(['add', 'github']);
 
       expect(result.exitCode).toBe(0);
 
@@ -102,28 +91,24 @@ describe('add command', () => {
       expect(Object.keys(servers).length).toBeGreaterThan(0);
     });
 
-    test('shows required environment variables', async () => {
-      const result = await runCli([
-        'add',
-        'io.github.bytedance/mcp-server-filesystem',
-        '--dry-run',
-      ]);
+    test('adds HTTP config for remote server', async () => {
+      const result = await runCli(['add', 'github']);
 
       expect(result.exitCode).toBe(0);
-      // Should mention any required env vars or args
+
+      const config = await readConfig();
+      const servers = config.mcpServers as Record<string, Record<string, unknown>>;
+      const serverConfig = Object.values(servers)[0];
+      expect(serverConfig).toHaveProperty('url');
+      expect(serverConfig.transport).toBe('streamable-http');
     });
   });
 
   describe('idempotency', () => {
     test('skips if server already exists', async () => {
-      // First add
-      await runCli(['add', 'io.github.bytedance/mcp-server-filesystem']);
+      await runCli(['add', 'github']);
 
-      // Second add should be idempotent
-      const result = await runCli([
-        'add',
-        'io.github.bytedance/mcp-server-filesystem',
-      ]);
+      const result = await runCli(['add', 'github']);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('already exists');
@@ -134,7 +119,7 @@ describe('add command', () => {
     test('fails for non-existent server', async () => {
       const result = await runCli([
         'add',
-        'nonexistent.vendor/nonexistent-server-12345',
+        'nonexistent-server-12345-xyz-abc',
       ]);
 
       expect(result.exitCode).toBe(1);
@@ -150,17 +135,23 @@ describe('add command', () => {
   });
 
   describe('JSON output', () => {
-    test('outputs config in JSON format', async () => {
-      const result = await runCli([
-        'add',
-        'io.github.bytedance/mcp-server-filesystem',
-        '-j',
-      ]);
+    test('outputs config in JSON format with dry-run', async () => {
+      const result = await runCli(['add', 'github', '-j', '--dry-run']);
 
       expect(result.exitCode).toBe(0);
       const parsed = JSON.parse(result.stdout);
       expect(parsed).toHaveProperty('name');
       expect(parsed).toHaveProperty('config');
+      expect(typeof parsed.remote).toBe('boolean');
+    });
+
+    test('JSON output includes HTTP config for remote servers', async () => {
+      const result = await runCli(['add', 'github', '-j', '--dry-run']);
+
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.config).toHaveProperty('url');
+      expect(parsed.config.transport).toBe('streamable-http');
     });
   });
 });

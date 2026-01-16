@@ -1,0 +1,206 @@
+OFFICIAL MCP SERVER REGISTRY ISSUE
+===================================
+Date: 2026-01-16
+Context: Research for mcpx CLI upgrade to discover official MCP servers
+
+PROBLEM STATEMENT
+-----------------
+When searching for MCP servers (e.g., "github", "slack"), existing registries return
+third-party wrappers or hosted versions instead of official vendor implementations.
+
+Example: `mcpx search github` returns Smithery's wrapper at `server.smithery.ai/github/mcp`
+instead of GitHub's official server at `api.githubcopilot.com/mcp/`
+
+
+OFFICIAL MCP SERVERS DISCOVERED (via `gh search repos "official mcp server"`)
+-----------------------------------------------------------------------------
+97 official MCP servers exist on GitHub. Top ones by stars:
+
+| Vendor        | Repo                              | Stars  | Remote Endpoint                        |
+|---------------|-----------------------------------|--------|----------------------------------------|
+| GitHub        | github/github-mcp-server          | 25,977 | https://api.githubcopilot.com/mcp/     |
+| Firecrawl     | firecrawl/firecrawl-mcp-server    | 5,280  |                                        |
+| Notion        | makenotion/notion-mcp-server      | 3,723  |                                        |
+| Perplexity    | perplexityai/modelcontextprotocol | 1,880  |                                        |
+| Microsoft     | MicrosoftDocs/mcp                 | 1,283  |                                        |
+| MiniMax       | MiniMax-AI/MiniMax-MCP            | 1,185  |                                        |
+| Qdrant        | qdrant/mcp-server-qdrant          | 1,167  |                                        |
+| ElevenLabs    | elevenlabs/elevenlabs-mcp         | 1,152  |                                        |
+| LINE          | line/line-bot-mcp-server          | 512    |                                        |
+| Alpaca        | alpacahq/alpaca-mcp-server        | 450    |                                        |
+| Jina AI       | jina-ai/MCP                       | 408    | Remote                                 |
+| Redis         | redis/mcp-redis                   | 389    |                                        |
+| Kagi          | kagisearch/kagimcp                | 264    |                                        |
+| Razorpay      | razorpay/razorpay-mcp-server      | 211    |                                        |
+| Tripo         | VAST-AI-Research/tripo-mcp        | 177    |                                        |
+| Tableau       | tableau/tableau-mcp               | 163    |                                        |
+| Magic UI      | magicuidesign/mcp                 | 160    |                                        |
+| Neo4j         | neo4j/mcp                         | 154    |                                        |
+| PostHog       | PostHog/mcp                       | 142    |                                        |
+| Penpot        | penpot/penpot-mcp                 | 131    |                                        |
+| BrowserStack  | browserstack/mcp-server           | 117    |                                        |
+| MATLAB        | matlab/matlab-mcp-core-server     | 117    |                                        |
+| Railway       | railwayapp/railway-mcp-server     | 103    |                                        |
+| Vectorize     | vectorize-io/vectorize-mcp-server | 102    |                                        |
+| Taskade       | taskade/mcp                       | 96     |                                        |
+| Octopus       | OctopusDeploy/mcp-server          | 92     |                                        |
+| Render        | render-oss/render-mcp-server      | 88     |                                        |
+| Ahrefs        | ahrefs/ahrefs-mcp-server          | 86     |                                        |
+| Alchemy       | alchemyplatform/alchemy-mcp-server| 72     |                                        |
+| DataHub       | acryldata/mcp-server-datahub      | 66     |                                        |
+| SurrealDB     | surrealdb/surrealmcp              | 65     |                                        |
+| QuantConnect  | QuantConnect/mcp-server           | 63     |                                        |
+| Mailtrap      | mailtrap/mailtrap-mcp             | 52     |                                        |
+| Buildkite     | buildkite/buildkite-mcp-server    | 42     |                                        |
+| AWS Powertools| aws-powertools/powertools-mcp     | 40     |                                        |
+| MinIO         | minio/mcp-server-aistor           | 35     |                                        |
+| Netlify       | netlify/netlify-mcp               | 33     |                                        |
+| Infisical     | Infisical/infisical-mcp-server    | 33     |                                        |
+| Kintone       | kintone/mcp-server                | 32     |                                        |
+| Cal.com       | calcom/cal-mcp                    | 17     |                                        |
+| W&B           | wandb/wandb-mcp-server            | 16     |                                        |
+| Harness       | harness/mcp-server                | 22     |                                        |
+| GrowthBook    | growthbook/growthbook-mcp         | 19     |                                        |
+| Gravatar      | Automattic/mcp-server-gravatar    | 11     | Remote available                       |
+
+
+GOOGLE'S OFFICIAL MCP SERVERS (from blog.google.com)
+----------------------------------------------------
+Google has fully managed remote MCP servers:
+
+| Service       | Endpoint                           | Auth                    |
+|---------------|------------------------------------|-------------------------|
+| BigQuery      | bigquery.googleapis.com/mcp        | OAuth/ADC + IAM         |
+| Google Maps   | mapstools.googleapis.com/mcp       | API Key (X-Goog-Api-Key)|
+| GKE           | container.googleapis.com/mcp       | OAuth/ADC + IAM         |
+| GCE           | compute.googleapis.com/mcp         | OAuth/ADC + IAM         |
+
+Pattern: {service}.googleapis.com/mcp
+Transport: Streamable HTTP
+Requires: roles/mcp.toolUser IAM role
+
+
+EXISTING REGISTRIES ANALYSIS
+----------------------------
+
+1. registry.smithery.ai
+   - Servers: ~1000+
+   - Issue: Returns WRAPPERS, not official servers
+   - Example: "github" -> server.smithery.ai/github/mcp (Smithery's wrapper)
+   - API: Yes (JSON)
+
+   Cross-check results:
+   | Search    | Smithery Returns              | Official Repo                     |
+   |-----------|-------------------------------|-----------------------------------|
+   | github    | github (Smithery wrapper)     | github/github-mcp-server          |
+   | notion    | notion (Smithery wrapper)     | makenotion/notion-mcp-server      |
+   | perplexity| @arjunkmrm/... (third-party)  | perplexityai/modelcontextprotocol |
+   | elevenlabs| brightdata (WRONG)            | elevenlabs/elevenlabs-mcp         |
+   | qdrant    | @cpretzinger/... (third-party)| qdrant/mcp-server-qdrant          |
+   | redis     | @ref-tools/... (WRONG)        | redis/mcp-redis                   |
+   | neo4j     | @sylweriusz/... (third-party) | neo4j/mcp                         |
+   | tableau   | googlesheets (WRONG)          | tableau/tableau-mcp               |
+   | railway   | @jason-tan-swe/... (3rd party)| railwayapp/railway-mcp-server     |
+   | netlify   | wrong match                   | netlify/netlify-mcp               |
+
+2. registry.modelcontextprotocol.io
+   - Servers: ~2000+
+   - Issue: Mostly third-party, many Smithery-proxied
+   - seed.json has only 4 sample entries
+   - API: Yes (JSON)
+
+3. docker/mcp-registry (GitHub)
+   - Servers: 318
+   - Format: YAML configs in /servers/{name}/server.yaml
+   - BEST OPTION: Points to actual official repos
+   - Example configs:
+     - notion -> github.com/makenotion/notion-mcp-server (CORRECT)
+     - redis -> github.com/redis/mcp-redis (CORRECT)
+     - elevenlabs -> github.com/elevenlabs/elevenlabs-mcp (CORRECT)
+     - buildkite -> github.com/buildkite/buildkite-mcp-server (CORRECT)
+   - Issue: Incomplete (missing neo4j, posthog, railway, netlify, etc.)
+   - API: No (must query GitHub API for files)
+
+4. punkpeye/awesome-mcp-servers (GitHub)
+   - Stars: 79,020
+   - Servers: 1000+
+   - Uses 🎖️ emoji to mark official implementations
+   - Format: Markdown (not machine-readable)
+   - API: No
+
+5. toolsdk-ai/toolsdk-mcp-registry (GitHub)
+   - Has indexes/packages-list.json
+   - Format: JSON
+   - Needs further investigation
+
+
+KEY FINDINGS
+------------
+1. 97 official MCP servers exist on GitHub (search: "official mcp server")
+2. No registry comprehensively indexes all official vendor servers
+3. Smithery registry actively misleads - returns wrappers instead of officials
+4. Docker's registry is best but incomplete (318 of 97+ officials)
+5. Official servers use vendor domains (api.githubcopilot.com, googleapis.com)
+6. Transport: Streamable HTTP for remote, stdio for local
+
+
+RECOMMENDED SOLUTIONS
+---------------------
+
+Option 1: Use Docker's registry as base + GitHub API search
+- Query docker/mcp-registry for existing configs
+- Supplement with `gh search repos "official mcp server"` for discovery
+- Pros: Structured YAML, actual repo links
+- Cons: Need to merge two sources
+
+Option 2: Build aggregator that queries multiple sources
+- Docker registry (YAML configs)
+- GitHub API (official server discovery)
+- Optionally parse awesome-mcp-servers for 🎖️ entries
+- Pros: Comprehensive
+- Cons: Complex maintenance
+
+Option 3: Direct GitHub/npm search in CLI
+- `mcpx search --github <query>` -> gh search repos "mcp server org:<query>"
+- `mcpx search --npm <query>` -> npm registry search
+- Pros: Always fresh data
+- Cons: No curation, user must filter
+
+
+GITHUB CLI COMMANDS FOR DISCOVERY
+---------------------------------
+# Find official MCP servers
+gh search repos "official mcp server" --sort stars --limit 100 --json fullName,description,stargazersCount
+
+# Search specific org
+gh search repos "mcp-server org:github" --sort stars
+
+# Search npm for MCP servers
+curl -s "https://registry.npmjs.org/-/v1/search?text=mcp-server+scope:modelcontextprotocol"
+
+
+DOCKER REGISTRY QUERY EXAMPLES
+------------------------------
+# List all servers
+gh api repos/docker/mcp-registry/contents/servers --jq '.[].name'
+
+# Get specific server config
+gh api repos/docker/mcp-registry/contents/servers/notion/server.yaml --jq '.content' | base64 -d
+
+# Server YAML format:
+# name: notion
+# image: mcp/notion
+# source:
+#   project: https://github.com/makenotion/notion-mcp-server
+#   commit: <sha>
+# config:
+#   secrets: [...]
+
+
+NEXT STEPS
+----------
+1. Decide on registry strategy (Docker + GitHub vs custom)
+2. Add `--official` flag to mcpx search to filter official servers
+3. Consider caching official server list locally
+4. Add `mcpx add github:github/github-mcp-server` syntax for direct GitHub installs
+5. Map common names to official repos (github -> github/github-mcp-server)

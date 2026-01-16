@@ -1,5 +1,3 @@
-// NOTE(victor): Tests use --registry flag to avoid slow local server connections. Local search tested via unit tests.
-
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -38,27 +36,34 @@ describe('search command', () => {
   }
 
   describe('basic search', () => {
-    test('searches registry for postgres', async () => {
-      const result = await runCli(['search', 'postgres', '--registry']);
+    test('searches Smithery registry for github', async () => {
+      const result = await runCli(['search', 'github']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Registry:');
-      expect(result.stdout).toContain('postgres');
+      expect(result.stdout).toContain('Registry');
+      expect(result.stdout).toContain('github');
+      expect(result.stdout).toContain('sorted by stars');
     });
 
-    test('searches registry for filesystem', async () => {
-      const result = await runCli(['search', 'filesystem', '--registry']);
+    test('shows star counts in output', async () => {
+      const result = await runCli(['search', 'github']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Registry:');
-      expect(result.stdout).toContain('filesystem');
+      expect(result.stdout).toMatch(/\(\d+(\.\d+)?k? stars\)/);
     });
 
-    test('handles no matches gracefully', async () => {
-      const result = await runCli(['search', 'xyznonexistent12345zzz', '--registry']);
+    test('shows official badge for verified servers', async () => {
+      const result = await runCli(['search', 'github']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('No results found');
+      expect(result.stdout).toMatch(/\[official\]/);
+    });
+
+    test('shows remote/local type tag', async () => {
+      const result = await runCli(['search', 'github']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/\[remote\]|\[local\]/);
     });
   });
 
@@ -67,23 +72,32 @@ describe('search command', () => {
       const result = await runCli(['search', 'filesystem', '--local']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).not.toContain('Registry:');
+      expect(result.stdout).not.toContain('Registry');
     });
   });
 
-  describe('--registry flag', () => {
-    test('only searches registry (no Local section)', async () => {
-      const result = await runCli(['search', 'filesystem', '--registry']);
+  describe('--verified flag', () => {
+    test('filters to verified servers only', async () => {
+      const result = await runCli(['search', 'github', '--verified']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).not.toContain('Local:');
-      expect(result.stdout).toContain('Registry:');
+      expect(result.stdout).toContain('Registry');
+    });
+  });
+
+  describe('--limit flag', () => {
+    test('limits number of results', async () => {
+      const result = await runCli(['search', 'mcp', '--limit', '5']);
+
+      expect(result.exitCode).toBe(0);
+      const lines = result.stdout.split('\n').filter(l => l.startsWith('  '));
+      expect(lines.length).toBeLessThanOrEqual(5);
     });
   });
 
   describe('--json flag', () => {
     test('outputs JSON format', async () => {
-      const result = await runCli(['search', 'filesystem', '-j', '--registry']);
+      const result = await runCli(['search', 'github', '-j']);
 
       expect(result.exitCode).toBe(0);
       const parsed = JSON.parse(result.stdout);
@@ -93,8 +107,8 @@ describe('search command', () => {
       expect(Array.isArray(parsed.registry)).toBe(true);
     });
 
-    test('JSON output includes server details', async () => {
-      const result = await runCli(['search', 'filesystem', '-j', '--registry']);
+    test('JSON output includes Smithery server details', async () => {
+      const result = await runCli(['search', 'github', '-j']);
 
       expect(result.exitCode).toBe(0);
       const parsed = JSON.parse(result.stdout);
@@ -102,28 +116,19 @@ describe('search command', () => {
       const server = parsed.registry[0];
       expect(server).toHaveProperty('name');
       expect(server).toHaveProperty('description');
-      expect(server).toHaveProperty('transport');
+      expect(server).toHaveProperty('githubStars');
+      expect(server).toHaveProperty('verified');
+      expect(server).toHaveProperty('remote');
     });
   });
 
   describe('-d flag (with descriptions)', () => {
     test('shows descriptions in text output', async () => {
-      const result = await runCli(['search', 'filesystem', '-d', '--registry']);
+      const result = await runCli(['search', 'github', '-d']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Registry:');
-      // Descriptions appear after " - "
+      expect(result.stdout).toContain('Registry');
       expect(result.stdout).toContain(' - ');
-    });
-  });
-
-  describe('output format', () => {
-    test('shows transport type for registry servers', async () => {
-      const result = await runCli(['search', 'filesystem', '--registry']);
-
-      expect(result.exitCode).toBe(0);
-      // Transport should be shown in brackets
-      expect(result.stdout).toMatch(/\[stdio\]|\[sse\]|\[streamable-http\]|\[unknown\]/);
     });
   });
 
