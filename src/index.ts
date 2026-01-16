@@ -11,11 +11,13 @@
  *   mcpx <server>/<tool> <json>  Call tool with arguments
  */
 
+import { addCommand } from './commands/add.js';
 import { callCommand } from './commands/call.js';
 import { configCommand } from './commands/config.js';
 import { grepCommand } from './commands/grep.js';
 import { infoCommand } from './commands/info.js';
 import { listCommand } from './commands/list.js';
+import { searchCommand } from './commands/search.js';
 import {
   DEFAULT_CONCURRENCY,
   DEFAULT_MAX_RETRIES,
@@ -31,13 +33,28 @@ import {
 import { VERSION } from './version.js';
 
 interface ParsedArgs {
-  command: 'list' | 'grep' | 'info' | 'call' | 'config' | 'help' | 'version';
+  command:
+    | 'list'
+    | 'grep'
+    | 'search'
+    | 'add'
+    | 'info'
+    | 'call'
+    | 'config'
+    | 'help'
+    | 'version';
   target?: string;
   pattern?: string;
+  query?: string;
+  serverName?: string;
+  alias?: string;
   args?: string;
   json: boolean;
   withDescriptions: boolean;
   configPath?: string;
+  localOnly: boolean;
+  registryOnly: boolean;
+  dryRun: boolean;
 }
 
 /**
@@ -48,6 +65,9 @@ function parseArgs(args: string[]): ParsedArgs {
     command: 'list',
     json: false,
     withDescriptions: false,
+    localOnly: false,
+    registryOnly: false,
+    dryRun: false,
   };
 
   const positional: string[] = [];
@@ -81,6 +101,22 @@ function parseArgs(args: string[]): ParsedArgs {
         result.configPath = args[++i];
         break;
 
+      case '--local':
+        result.localOnly = true;
+        break;
+
+      case '--registry':
+        result.registryOnly = true;
+        break;
+
+      case '--dry-run':
+        result.dryRun = true;
+        break;
+
+      case '--as':
+        result.alias = args[++i];
+        break;
+
       default:
         // Single '-' is allowed (stdin indicator), but other dash-prefixed args are options
         if (arg.startsWith('-') && arg !== '-') {
@@ -101,6 +137,20 @@ function parseArgs(args: string[]): ParsedArgs {
     result.pattern = positional[1];
     if (!result.pattern) {
       console.error(formatCliError(missingArgumentError('grep', 'pattern')));
+      process.exit(ErrorCode.CLIENT_ERROR);
+    }
+  } else if (positional[0] === 'search') {
+    result.command = 'search';
+    result.query = positional[1];
+    if (!result.query) {
+      console.error(formatCliError(missingArgumentError('search', 'query')));
+      process.exit(ErrorCode.CLIENT_ERROR);
+    }
+  } else if (positional[0] === 'add') {
+    result.command = 'add';
+    result.serverName = positional[1];
+    if (!result.serverName) {
+      console.error(formatCliError(missingArgumentError('add', 'server-name')));
       process.exit(ErrorCode.CLIENT_ERROR);
     }
   } else if (positional[0].includes('/')) {
@@ -205,6 +255,27 @@ async function main(): Promise<void> {
         withDescriptions: args.withDescriptions,
         json: args.json,
         configPath: args.configPath,
+      });
+      break;
+
+    case 'search':
+      await searchCommand({
+        query: args.query ?? '',
+        localOnly: args.localOnly,
+        registryOnly: args.registryOnly,
+        withDescriptions: args.withDescriptions,
+        json: args.json,
+        configPath: args.configPath,
+      });
+      break;
+
+    case 'add':
+      await addCommand({
+        serverName: args.serverName ?? '',
+        alias: args.alias,
+        dryRun: args.dryRun,
+        json: args.json,
+        configPath: args.configPath ?? './mcp_servers.json',
       });
       break;
 
