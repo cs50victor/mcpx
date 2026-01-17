@@ -277,56 +277,81 @@ export function getConfigPaths(explicitPath?: string): ConfigPathsResult {
 }
 
 /**
+ * Check if a string looks like inline JSON config (starts with '{')
+ */
+function isInlineJson(value: string): boolean {
+  return value.trimStart().startsWith('{');
+}
+
+/**
  * Load and parse MCP servers configuration
+ * Supports both file paths and inline JSON (when value starts with '{')
  */
 export async function loadConfig(
   explicitPath?: string,
 ): Promise<McpServersConfig> {
-  let configPath: string | undefined;
+  let config: McpServersConfig;
+  let configSource: string;
 
-  // Check explicit path from argument or environment
-  if (explicitPath) {
-    configPath = resolve(explicitPath);
-  } else if (process.env.MCP_CONFIG_PATH) {
-    configPath = resolve(process.env.MCP_CONFIG_PATH);
-  }
-
-  // If explicit path provided, it must exist
-  if (configPath) {
-    if (!existsSync(configPath)) {
-      throw new Error(formatCliError(configNotFoundError(configPath)));
+  // Check for inline JSON config (starts with '{')
+  const inlineValue = explicitPath ?? process.env.MCP_CONFIG_PATH;
+  if (inlineValue && isInlineJson(inlineValue)) {
+    configSource = '<inline>';
+    try {
+      config = JSON.parse(inlineValue);
+    } catch (e) {
+      throw new Error(
+        formatCliError(
+          configInvalidJsonError('<inline>', (e as Error).message),
+        ),
+      );
     }
   } else {
-    // Search default paths
-    const searchPaths = getDefaultConfigPaths();
-    for (const path of searchPaths) {
-      if (existsSync(path)) {
-        configPath = path;
-        break;
+    // File-based config (existing behavior)
+    let configPath: string | undefined;
+
+    if (explicitPath) {
+      configPath = resolve(explicitPath);
+    } else if (process.env.MCP_CONFIG_PATH) {
+      configPath = resolve(process.env.MCP_CONFIG_PATH);
+    }
+
+    if (configPath) {
+      if (!existsSync(configPath)) {
+        throw new Error(formatCliError(configNotFoundError(configPath)));
+      }
+    } else {
+      const searchPaths = getDefaultConfigPaths();
+      for (const path of searchPaths) {
+        if (existsSync(path)) {
+          configPath = path;
+          break;
+        }
+      }
+
+      if (!configPath) {
+        throw new Error(formatCliError(configSearchError()));
       }
     }
 
-    if (!configPath) {
-      throw new Error(formatCliError(configSearchError()));
+    configSource = configPath;
+    const file = Bun.file(configPath);
+    const content = await file.text();
+
+    try {
+      config = JSON.parse(content);
+    } catch (e) {
+      throw new Error(
+        formatCliError(
+          configInvalidJsonError(configPath, (e as Error).message),
+        ),
+      );
     }
-  }
-
-  // Read and parse config
-  const file = Bun.file(configPath);
-  const content = await file.text();
-
-  let config: McpServersConfig;
-  try {
-    config = JSON.parse(content);
-  } catch (e) {
-    throw new Error(
-      formatCliError(configInvalidJsonError(configPath, (e as Error).message)),
-    );
   }
 
   // Validate structure
   if (!config.mcpServers || typeof config.mcpServers !== 'object') {
-    throw new Error(formatCliError(configMissingFieldError(configPath)));
+    throw new Error(formatCliError(configMissingFieldError(configSource)));
   }
 
   // Warn if no servers are configured
