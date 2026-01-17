@@ -143,7 +143,7 @@ Options:
   -v, --version            Show version number
   -j, --json               Output as JSON (for scripting)
   -d, --with-descriptions  Include tool descriptions
-  -c, --config <path>      Path to mcp_servers.json config file
+  -c, --config <path|json> Config file path or inline JSON (if starts with '{')
 
 Output:
   stdout                   Tool results and data (default: text, --json for JSON)
@@ -166,6 +166,9 @@ Examples:
   mcpx filesystem/read_file               # Show tool schema
   mcpx filesystem/read_file '{"path":"./README.md"}'  # Call tool
   echo '{"path":"./file"}' | mcpx server/tool -       # Read JSON from stdin
+
+  # Inline config (no config file needed):
+  mcpx -c '{"mcpServers":{"s":{"command":"npx","args":["-y","@mcp/server"]}}}' s/tool
 
 Config File:
   The CLI looks for mcp_servers.json in:

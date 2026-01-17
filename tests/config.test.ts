@@ -277,4 +277,34 @@ describe('config', () => {
       expect(patterns.size).toBe(0);
     });
   });
+
+  describe('inline config', () => {
+    test('loadConfig parses inline JSON when value starts with {', async () => {
+      const inlineConfig = '{"mcpServers":{"test":{"command":"echo"}}}';
+      const config = await loadConfig(inlineConfig);
+      expect(config.mcpServers.test).toBeDefined();
+      expect((config.mcpServers.test as any).command).toBe('echo');
+    });
+
+    test('loadConfig parses inline JSON with whitespace prefix', async () => {
+      const inlineConfig = '  {"mcpServers":{"test":{"url":"http://localhost"}}}';
+      const config = await loadConfig(inlineConfig);
+      expect((config.mcpServers.test as any).url).toBe('http://localhost');
+    });
+
+    test('loadConfig throws on invalid inline JSON', async () => {
+      const badJson = '{mcpServers: invalid}';
+      await expect(loadConfig(badJson)).rejects.toThrow('Invalid JSON');
+    });
+
+    test('loadConfig throws on inline JSON missing mcpServers', async () => {
+      const noServers = '{"servers":{}}';
+      await expect(loadConfig(noServers)).rejects.toThrow('mcpServers');
+    });
+
+    test('loadConfig validates inline server configs', async () => {
+      const badServer = '{"mcpServers":{"test":{}}}';
+      await expect(loadConfig(badServer)).rejects.toThrow('missing required field');
+    });
+  });
 });
