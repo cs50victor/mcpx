@@ -56,7 +56,7 @@ export function configNotFoundError(path: string): CliError {
     code: ErrorCode.CLIENT_ERROR,
     type: 'CONFIG_NOT_FOUND',
     message: `Config file not found: ${path}`,
-    suggestion: `Create mcp_servers.json with: { "mcpServers": { "server-name": { "command": "..." } } }`,
+    suggestion: `Create mcp_servers.json with: { "mcpServers": { "server-name": { "command": "..." } } }. Run 'mcpx --help' first if you haven't.`,
   };
 }
 
@@ -67,8 +67,7 @@ export function configSearchError(): CliError {
     message: 'No mcp_servers.json found in search paths',
     details:
       'Searched: ./mcp_servers.json, ~/.mcp_servers.json, ~/.config/mcp/mcp_servers.json',
-    suggestion:
-      'Create mcp_servers.json in current directory or use -c/--config to specify path',
+    suggestion: `Create mcp_servers.json in current directory or use -c/--config to specify path. Run 'mcpx --help' first if you haven't.`,
   };
 }
 
@@ -81,8 +80,7 @@ export function configInvalidJsonError(
     type: 'CONFIG_INVALID_JSON',
     message: `Invalid JSON in config file: ${path}`,
     details: parseError,
-    suggestion:
-      'Check for syntax errors: missing commas, unquoted keys, trailing commas',
+    suggestion: `Check for syntax errors: missing commas, unquoted keys, trailing commas. Run 'mcpx --help' for config format examples.`,
   };
 }
 
@@ -92,7 +90,7 @@ export function configMissingFieldError(path: string): CliError {
     type: 'CONFIG_MISSING_FIELD',
     message: `Config file missing required "mcpServers" object`,
     details: `File: ${path}`,
-    suggestion: 'Config must have structure: { "mcpServers": { ... } }',
+    suggestion: `Config must have structure: { "mcpServers": { "name": { "command": "...", "args": [...] } } }. Run 'mcpx --help' for full examples.`,
   };
 }
 
@@ -112,7 +110,7 @@ export function serverNotFoundError(
     type: 'SERVER_NOT_FOUND',
     message: `Server "${serverName}" not found in config`,
     details: `Available servers${sourceInfo}: ${availableList}`,
-    suggestion: `Run 'mcpx --help' to see config search paths and options`,
+    suggestion: `Run 'mcpx --help' first if you haven't - it shows config search paths and setup instructions`,
   };
 }
 
@@ -122,21 +120,25 @@ export function serverConnectionError(
 ): CliError {
   // Detect common error patterns
   let suggestion =
-    'Check server configuration and ensure the server process can start';
+    'Check server configuration and ensure the server process can start. Verify config with: mcpx list --json';
 
   if (cause.includes('ENOENT') || cause.includes('not found')) {
-    suggestion =
-      'Command not found. Install the MCP server: npx -y @modelcontextprotocol/server-<name>';
+    suggestion = `Command not found. The server binary/script doesn't exist. For official MCP servers: npx -y @modelcontextprotocol/server-<name>. Check 'command' path in your config.`;
   } else if (cause.includes('ECONNREFUSED')) {
     suggestion =
-      'Server refused connection. Check if the server is running and URL is correct';
+      'Server refused connection. For SSE servers, verify the URL is correct and server is running. Check "url" in config.';
   } else if (cause.includes('ETIMEDOUT') || cause.includes('timeout')) {
     suggestion =
-      'Connection timed out. Check network connectivity and server availability';
+      'Connection timed out. Check network connectivity. For SSE servers, verify firewall/proxy settings.';
   } else if (cause.includes('401') || cause.includes('Unauthorized')) {
-    suggestion = 'Authentication required. Add Authorization header to config';
+    suggestion =
+      'Authentication required. Add authorization headers or env variables to config';
   } else if (cause.includes('403') || cause.includes('Forbidden')) {
-    suggestion = 'Access forbidden. Check credentials and permissions';
+    suggestion =
+      'Access forbidden. Check API key/token permissions. Verify credentials in config headers.';
+  } else if (cause.includes('EACCES') || cause.includes('permission')) {
+    suggestion =
+      'Permission denied. Check file permissions on the server command/script. Try: chmod +x <script>';
   }
 
   return {
@@ -170,7 +172,7 @@ export function toolNotFoundError(
     details: availableTools
       ? `Available tools: ${toolList}${moreCount}`
       : undefined,
-    suggestion: `Run 'mcpx ${serverName}' to see all available tools`,
+    suggestion: `Run 'mcpx ${serverName}' to list all tools. Use 'mcpx grep <pattern>' to search across all servers.`,
   };
 }
 
@@ -179,17 +181,29 @@ export function toolExecutionError(
   serverName: string,
   cause: string,
 ): CliError {
-  let suggestion = 'Check tool arguments match the expected schema';
+  let suggestion = `Check tool arguments match the expected schema. Run 'mcpx ${serverName}/${toolName}' to see the schema.`;
 
   // Detect common MCP error patterns
   if (cause.includes('validation') || cause.includes('invalid_type')) {
-    suggestion = `Run 'mcpx ${serverName}/${toolName}' to see the input schema, then fix arguments`;
+    suggestion = `Wrong argument type. Run 'mcpx ${serverName}/${toolName}' to see the input schema with types. Common issues: string vs number, missing quotes.`;
   } else if (cause.includes('required')) {
-    suggestion = `Missing required argument. Run 'mcpx ${serverName}/${toolName}' to see required fields`;
+    suggestion = `Missing required argument. Run 'mcpx ${serverName}/${toolName}' to see required fields (marked in schema).`;
   } else if (cause.includes('permission') || cause.includes('denied')) {
-    suggestion = 'Permission denied. Check file/resource permissions';
+    suggestion =
+      'Permission denied on target resource. Check file/directory permissions or API access rights.';
   } else if (cause.includes('not found') || cause.includes('ENOENT')) {
-    suggestion = 'Resource not found. Verify the path or identifier exists';
+    suggestion =
+      'Resource not found. Verify the path/identifier exists. Use absolute paths for files.';
+  } else if (
+    cause.includes('rate') ||
+    cause.includes('limit') ||
+    cause.includes('429')
+  ) {
+    suggestion =
+      'Rate limited. Wait before retrying. Consider adding delays between calls.';
+  } else if (cause.includes('timeout')) {
+    suggestion =
+      'Operation timed out. The tool may need more time. Check MCP_TIMEOUT env var (default 30s).';
   }
 
   return {
@@ -210,8 +224,9 @@ export function invalidTargetError(target: string): CliError {
     code: ErrorCode.CLIENT_ERROR,
     type: 'INVALID_TARGET',
     message: `Invalid target format: "${target}"`,
-    details: 'Expected format: server/tool',
-    suggestion: `Use 'mcpx <server>/<tool> <json>' format, e.g., 'mcpx github/search_repos \'{"query":"mcp"}\''`,
+    details:
+      'Expected format: server/tool for calling tools, or just server to list tools',
+    suggestion: `Use 'mcpx <server>' to list tools, 'mcpx <server>/<tool>' for tool info, 'mcpx <server>/<tool> <json>' to call. Run 'mcpx --help' for examples.`,
   };
 }
 
@@ -228,8 +243,7 @@ export function invalidJsonArgsError(
     type: 'INVALID_JSON_ARGUMENTS',
     message: 'Invalid JSON in tool arguments',
     details: parseError ? `Parse error: ${parseError}` : `Input: ${truncated}`,
-    suggestion:
-      'Arguments must be valid JSON. Use single quotes around JSON: \'{"key": "value"}\'',
+    suggestion: `Arguments must be valid JSON object. Use single quotes around JSON: 'mcpx server/tool \'{"key": "value"}\''. You can also pipe JSON: 'echo \'{"key":"value"}\' | mcpx server/tool'`,
   };
 }
 
@@ -264,6 +278,6 @@ export function toolDisabledError(
     type: 'TOOL_DISABLED',
     message: `Tool "${toolPath}" is disabled`,
     details: `Matched pattern "${pattern}" from ${source}`,
-    suggestion: 'Use alternative tools or approaches to complete this task',
+    suggestion: `Use 'mcpx grep <pattern>' to find alternative tools across all servers.`,
   };
 }

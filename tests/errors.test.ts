@@ -100,12 +100,12 @@ describe('errors', () => {
     test('serverConnectionError detects command not found', () => {
       const error = serverConnectionError('github', 'ENOENT: command not found');
       expect(error.type).toBe('SERVER_CONNECTION_FAILED');
-      expect(error.suggestion).toContain('Install');
+      expect(error.suggestion).toContain('Command not found');
     });
 
     test('serverConnectionError detects connection refused', () => {
       const error = serverConnectionError('remote', 'ECONNREFUSED');
-      expect(error.suggestion).toContain('Check if the server is running');
+      expect(error.suggestion).toContain('server is running');
     });
 
     test('serverConnectionError detects timeout', () => {
@@ -115,7 +115,7 @@ describe('errors', () => {
 
     test('serverConnectionError detects 401 unauthorized', () => {
       const error = serverConnectionError('remote', '401 Unauthorized');
-      expect(error.suggestion).toContain('Authorization header');
+      expect(error.suggestion).toContain('authorization headers');
     });
   });
 
