@@ -40,3 +40,6 @@ tmp/
 temp/
 *.tmp
 *.bun-build
+
+# Local MCP config
+mcp_servers.json
