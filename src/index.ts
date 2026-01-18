@@ -11,6 +11,7 @@
  *   mcpx <server>/<tool> <json>  Call tool with arguments
  */
 
+import { closest, distance } from 'fastest-levenshtein';
 import { callCommand } from './commands/call.js';
 import { configCommand } from './commands/config.js';
 import { grepCommand } from './commands/grep.js';
@@ -22,6 +23,7 @@ import {
   DEFAULT_RETRY_DELAY_MS,
   DEFAULT_TIMEOUT_SECONDS,
 } from './config.js';
+
 import {
   daemonStatus,
   getDaemonSocketPath,
@@ -35,6 +37,9 @@ import {
   unknownOptionError,
 } from './errors.js';
 import { VERSION } from './version.js';
+
+/** Positional subcommands - used for parsing and typo detection */
+const SUBCOMMANDS = ['config', 'daemon', 'grep'] as const;
 
 interface ParsedArgs {
   command:
@@ -145,6 +150,15 @@ function parseArgs(args: string[]): ParsedArgs {
       result.command = 'info';
     }
   } else {
+    // Check for typos in subcommands before treating as server name
+    const input = positional[0];
+    const match = closest(input, SUBCOMMANDS as unknown as string[]);
+    const dist = distance(input, match);
+    if (dist > 0 && dist <= 2) {
+      console.error(`Unknown command: '${input}'. Did you mean '${match}'?`);
+      process.exit(ErrorCode.CLIENT_ERROR);
+    }
+
     // Just server name
     result.command = 'info';
     result.target = positional[0];
