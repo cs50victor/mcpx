@@ -289,6 +289,8 @@ Legend: `>` = active, `o` = exists but not used, `x` = not found
 | `MCP_RETRY_DELAY` | Base retry delay (milliseconds) | `1000` |
 | `MCP_STRICT_ENV` | Error on missing `${VAR}` in config | `true` |
 | `MCP_DISABLED_TOOLS` | Comma-separated patterns to disable | (none) |
+| `MCP_DAEMON_SOCKET` | Daemon socket path | `~/.mcp-cli/daemon.sock` |
+| `MCP_DAEMON_IDLE_MS` | Daemon idle timeout (ms) | `300000` |
 
 ### Disabled Tools
 
@@ -351,7 +353,11 @@ mcpx <server>                     # Show server tools and parameters
 mcpx <server>/<tool>              # Get tool JSON schema and descriptions
 mcpx <server>/<tool> '<json>'     # Call tool with JSON arguments
 mcpx grep "<pattern>"             # Search tools by name (glob pattern)
+mcpx daemon start                 # Start persistent connection daemon
+mcpx daemon stop                  # Stop daemon
 ```
+
+For stateful MCP servers (browser automation, database sessions), start the daemon first. Connections persist across calls.
 
 **Add `-d` to include tool descriptions** (e.g., `mcpx <server> -d`)
 

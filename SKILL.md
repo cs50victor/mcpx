@@ -17,6 +17,7 @@ Access MCP servers through the command line. MCP enables interaction with extern
 | `mcpx <server>/<tool>` | Get tool JSON schema |
 | `mcpx <server>/<tool> '<json>'` | Call tool with arguments |
 | `mcpx grep "<glob>"` | Search tools by name |
+| `mcpx daemon start\|stop` | Manage persistent connections (for stateful servers) |
 
 **Add `-d` to include descriptions** (e.g., `mcpx filesystem -d`)
 

@@ -23,6 +23,12 @@ import {
   DEFAULT_TIMEOUT_SECONDS,
 } from './config.js';
 import {
+  daemonStatus,
+  getDaemonSocketPath,
+  startDaemon,
+  stopDaemon,
+} from './daemon.js';
+import {
   ErrorCode,
   formatCliError,
   missingArgumentError,
@@ -31,13 +37,22 @@ import {
 import { VERSION } from './version.js';
 
 interface ParsedArgs {
-  command: 'list' | 'grep' | 'info' | 'call' | 'config' | 'help' | 'version';
+  command:
+    | 'list'
+    | 'grep'
+    | 'info'
+    | 'call'
+    | 'config'
+    | 'daemon'
+    | 'help'
+    | 'version';
   target?: string;
   pattern?: string;
   args?: string;
   json: boolean;
   withDescriptions: boolean;
   configPath?: string;
+  daemonAction?: 'start' | 'stop' | 'status';
 }
 
 /**
@@ -96,6 +111,16 @@ function parseArgs(args: string[]): ParsedArgs {
     result.command = 'list';
   } else if (positional[0] === 'config') {
     result.command = 'config';
+  } else if (positional[0] === 'daemon') {
+    result.command = 'daemon';
+    const action = positional[1] as 'start' | 'stop' | 'status' | undefined;
+    if (!action || !['start', 'stop', 'status'].includes(action)) {
+      console.error(
+        formatCliError(missingArgumentError('daemon', 'start|stop|status')),
+      );
+      process.exit(ErrorCode.CLIENT_ERROR);
+    }
+    result.daemonAction = action;
   } else if (positional[0] === 'grep') {
     result.command = 'grep';
     result.pattern = positional[1];
@@ -127,6 +152,7 @@ function parseArgs(args: string[]): ParsedArgs {
  * Print help message
  */
 function printHelp(): void {
+  const socketPath = getDaemonSocketPath();
   console.log(`
 mcpx v${VERSION} - A lightweight CLI for MCP servers
 
@@ -137,6 +163,7 @@ Usage:
   mcpx [options] <server>                  Show server tools and parameters
   mcpx [options] <server>/<tool>           Show tool schema and description
   mcpx [options] <server>/<tool> <json>    Call tool with arguments
+  mcpx daemon <start|stop|status>          Manage persistent connection daemon
 
 Options:
   -h, --help               Show this help message
@@ -157,6 +184,8 @@ Environment Variables:
   MCP_MAX_RETRIES          Max retry attempts for transient errors (default: ${DEFAULT_MAX_RETRIES})
   MCP_RETRY_DELAY          Base retry delay in milliseconds (default: ${DEFAULT_RETRY_DELAY_MS})
   MCP_STRICT_ENV           Set to "false" to warn on missing env vars (default: true)
+  MCP_DAEMON_SOCKET        Daemon socket path (default: ${socketPath})
+  MCP_DAEMON_IDLE_MS       Daemon idle timeout in ms (default: 300000)
 
 Examples:
   mcpx                                    # List all servers
@@ -169,6 +198,13 @@ Examples:
 
   # Inline config (no config file needed):
   mcpx -c '{"mcpServers":{"s":{"command":"npx","args":["-y","@mcp/server"]}}}' s/tool
+
+Daemon Mode:
+  mcpx daemon start                          # Start persistent daemon
+  mcpx daemon status                         # Show daemon status
+  mcpx daemon stop                           # Stop daemon
+
+  When daemon is running, tool calls reuse connections for faster execution.
 
 Config File:
   The CLI looks for mcp_servers.json in:
@@ -234,6 +270,20 @@ async function main(): Promise<void> {
         json: args.json,
         configPath: args.configPath,
       });
+      break;
+
+    case 'daemon':
+      switch (args.daemonAction) {
+        case 'start':
+          await startDaemon();
+          break;
+        case 'stop':
+          await stopDaemon();
+          break;
+        case 'status':
+          await daemonStatus();
+          break;
+      }
       break;
   }
 }
