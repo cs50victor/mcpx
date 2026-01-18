@@ -88,13 +88,13 @@ describe('errors', () => {
       expect(error.message).toContain('unknown');
       expect(error.details).toContain('github');
       expect(error.details).toContain('filesystem');
-      expect(error.suggestion).toContain('mcpx github');
+      expect(error.suggestion).toContain('mcpx --help');
     });
 
     test('serverNotFoundError handles empty server list', () => {
       const error = serverNotFoundError('unknown', []);
       expect(error.details).toContain('(none)');
-      expect(error.suggestion).toContain('Add server to');
+      expect(error.suggestion).toContain('mcpx --help');
     });
 
     test('serverConnectionError detects command not found', () => {

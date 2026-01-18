@@ -200,11 +200,14 @@ Examples:
   mcpx -c '{"mcpServers":{"s":{"command":"npx","args":["-y","@mcp/server"]}}}' s/tool
 
 Daemon Mode:
-  mcpx daemon start                          # Start persistent daemon
+  mcpx daemon start &                        # Start daemon in background
   mcpx daemon status                         # Show daemon status
   mcpx daemon stop                           # Stop daemon
 
-  When daemon is running, tool calls reuse connections for faster execution.
+  Keeps MCP server connections alive between tool calls. Required for stateful
+  servers where sequential operations share state (e.g., browser sessions,
+  database transactions, file handles). Without the daemon, each tool call
+  starts a fresh server process and any prior state is lost.
 
 Config File:
   The CLI looks for mcp_servers.json in:

@@ -250,5 +250,8 @@ export async function callCommand(options: CallOptions): Promise<void> {
     process.exit(ErrorCode.SERVER_ERROR);
   } finally {
     await safeClose(close);
+    console.error(
+      '[mcpx] Session connection closed (stateful tools like browser automation need daemon mode, see mcpx --help)',
+    );
   }
 }

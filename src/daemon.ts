@@ -16,7 +16,6 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { type ConnectedClient, connectToServer, safeClose } from './client.js';
 import { type ServerConfig, debug } from './config.js';
-import { ErrorCode } from './errors.js';
 
 const DEFAULT_SOCKET_PATH = join(homedir(), '.mcp-cli', 'daemon.sock');
 const DEFAULT_IDLE_MS = 300000; // 5 minutes
@@ -316,8 +315,8 @@ export async function listDaemonServers(): Promise<string[]> {
 export async function stopDaemon(): Promise<void> {
   const socketPath = getSocketPath();
   if (!existsSync(socketPath)) {
-    console.error('Daemon is not running');
-    process.exit(ErrorCode.CLIENT_ERROR);
+    console.log('Daemon is not running');
+    return;
   }
 
   try {
@@ -328,8 +327,9 @@ export async function stopDaemon(): Promise<void> {
     });
     console.log('Daemon stopped');
   } catch {
-    console.error('Failed to stop daemon');
-    process.exit(ErrorCode.NETWORK_ERROR);
+    // Socket exists but daemon not responding - clean up stale socket
+    unlinkSync(socketPath);
+    console.log('Daemon is not running (removed stale socket)');
   }
 }
 

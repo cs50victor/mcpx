@@ -38,6 +38,8 @@ export type ServerConfig = StdioServerConfig | HttpServerConfig;
 
 export interface McpServersConfig {
   mcpServers: Record<string, ServerConfig>;
+  /** Internal: tracks where config was loaded from */
+  _configSource?: string;
 }
 
 /**
@@ -407,6 +409,9 @@ export async function loadConfig(
   // Substitute environment variables
   config = substituteEnvVarsInObject(config);
 
+  // Track config source for error messages
+  config._configSource = configSource;
+
   return config;
 }
 
@@ -420,7 +425,11 @@ export function getServerConfig(
   const server = config.mcpServers[serverName];
   if (!server) {
     const available = Object.keys(config.mcpServers);
-    throw new Error(formatCliError(serverNotFoundError(serverName, available)));
+    throw new Error(
+      formatCliError(
+        serverNotFoundError(serverName, available, config._configSource),
+      ),
+    );
   }
   return server;
 }

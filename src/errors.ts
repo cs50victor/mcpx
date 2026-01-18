@@ -103,17 +103,16 @@ export function configMissingFieldError(path: string): CliError {
 export function serverNotFoundError(
   serverName: string,
   available: string[],
+  configSource?: string,
 ): CliError {
   const availableList = available.length > 0 ? available.join(', ') : '(none)';
+  const sourceInfo = configSource ? ` (from ${configSource})` : '';
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'SERVER_NOT_FOUND',
     message: `Server "${serverName}" not found in config`,
-    details: `Available servers: ${availableList}`,
-    suggestion:
-      available.length > 0
-        ? `Use one of: ${available.map((s) => `mcpx ${s}`).join(', ')}`
-        : `Add server to mcp_servers.json: { "mcpServers": { "${serverName}": { ... } } }`,
+    details: `Available servers${sourceInfo}: ${availableList}`,
+    suggestion: `Run 'mcpx --help' to see config search paths and options`,
   };
 }
 
