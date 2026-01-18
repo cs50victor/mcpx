@@ -53,6 +53,7 @@ interface ParsedArgs {
   withDescriptions: boolean;
   configPath?: string;
   daemonAction?: 'start' | 'stop' | 'status';
+  daemonForce?: boolean;
 }
 
 /**
@@ -94,6 +95,10 @@ function parseArgs(args: string[]): ParsedArgs {
       case '-c':
       case '--config':
         result.configPath = args[++i];
+        break;
+
+      case '--force':
+        result.daemonForce = true;
         break;
 
       default:
@@ -200,7 +205,7 @@ Examples:
   mcpx -c '{"mcpServers":{"s":{"command":"npx","args":["-y","@mcp/server"]}}}' s/tool
 
 Daemon Mode:
-  mcpx daemon start &                        # Start daemon in background
+  mcpx daemon start                          # Start daemon (auto-backgrounds)
   mcpx daemon status                         # Show daemon status
   mcpx daemon stop                           # Stop daemon
 
@@ -281,7 +286,7 @@ async function main(): Promise<void> {
           await startDaemon();
           break;
         case 'stop':
-          await stopDaemon();
+          await stopDaemon(args.daemonForce);
           break;
         case 'status':
           await daemonStatus();

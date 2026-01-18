@@ -130,6 +130,41 @@ interface DaemonResponse {
 }
 
 export async function startDaemon(): Promise<void> {
+  // If we're the spawned daemon process, run the server
+  if (process.env._MCPX_DAEMON === '1') {
+    return runDaemonServer();
+  }
+
+  // Check if already running
+  if (await isDaemonRunning()) {
+    console.log('Daemon is already running');
+    return;
+  }
+
+  // Clean up stale socket if exists
+  const socketPath = getSocketPath();
+  if (existsSync(socketPath)) {
+    unlinkSync(socketPath);
+  }
+
+  // Spawn detached daemon process
+  const proc = Bun.spawn(['bun', 'run', process.argv[1], 'daemon', 'start'], {
+    env: { ...process.env, _MCPX_DAEMON: '1' },
+    stdio: ['ignore', 'ignore', 'ignore'],
+  });
+  proc.unref();
+
+  // Wait for socket to appear
+  await Bun.sleep(300);
+  if (await isDaemonRunning()) {
+    console.log(`Daemon started (PID: ${proc.pid})`);
+  } else {
+    console.error('Failed to start daemon');
+    process.exit(1);
+  }
+}
+
+async function runDaemonServer(): Promise<void> {
   const socketPath = getSocketPath();
   const idleMs = getIdleTimeoutMs();
 
@@ -312,11 +347,30 @@ export async function listDaemonServers(): Promise<string[]> {
   return response.servers ?? [];
 }
 
-export async function stopDaemon(): Promise<void> {
+export async function stopDaemon(force = false): Promise<void> {
   const socketPath = getSocketPath();
   if (!existsSync(socketPath)) {
     console.log('Daemon is not running');
     return;
+  }
+
+  // Check for active connections before stopping
+  if (!force) {
+    try {
+      const servers = await listDaemonServers();
+      if (servers.length > 0) {
+        console.log(
+          `There are ${servers.length} active connection(s): ${servers.join(', ')}`,
+        );
+        console.log(
+          "If you didn't run 'daemon start' yourself, these are likely other agents.",
+        );
+        console.log('Run with --force to stop immediately.');
+        process.exit(1);
+      }
+    } catch {
+      // Daemon not responding, proceed with cleanup
+    }
   }
 
   try {
