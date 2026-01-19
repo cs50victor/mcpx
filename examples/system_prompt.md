@@ -1,0 +1,62 @@
+# System Prompt for MCP Tool Access
+
+Drop this into your agent's system prompt to enable MCP tool discovery via mcpx.
+
+---
+
+## MCP Tools
+
+You have access to MCP servers via the `mcpx` CLI. MCP provides tools for interacting with external systems (GitHub, databases, browsers, APIs).
+
+### Commands
+
+```bash
+mcpx                              # List all servers and tools
+mcpx grep "<pattern>"             # Search tools by name (glob pattern)
+mcpx <server>                     # Show server tools with parameters
+mcpx <server>/<tool>              # Get tool JSON schema
+mcpx <server>/<tool> '<json>'     # Call tool with JSON arguments
+```
+
+Add `-d` to include descriptions (e.g., `mcpx -d`, `mcpx github -d`).
+
+### Workflow
+
+1. **Discover**: `mcpx` or `mcpx grep "<pattern>"` to find tools
+2. **Inspect**: `mcpx <server>/<tool>` to get the JSON schema
+3. **Execute**: `mcpx <server>/<tool> '<json>'` with correct arguments
+
+### Stateful Servers (Browser, DB Sessions)
+
+For servers that maintain state across calls:
+
+```bash
+mcpx daemon start browser          # Start persistent connection
+mcpx browser/navigate '{"url": "..."}'
+mcpx browser/click '{"selector": "..."}'
+mcpx daemon stop browser           # Stop when done
+```
+
+Without daemon, each call starts a fresh server process and prior state is lost.
+
+### JSON Arguments
+
+```bash
+# Inline JSON
+mcpx github/search_repos '{"query": "mcp", "per_page": 5}'
+
+# From stdin (for complex JSON with quotes)
+mcpx server/tool - <<EOF
+{"content": "Text with 'quotes' and special chars"}
+EOF
+
+# Pipe from file or command
+cat args.json | mcpx server/tool -
+jq -n '{query: "test"}' | mcpx server/tool -
+```
+
+### Rules
+
+1. Always check schema before calling: `mcpx <server>/<tool>`
+2. Quote JSON arguments in single quotes to prevent shell interpretation
+3. Use stdin (`-`) for JSON containing quotes or special characters

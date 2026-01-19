@@ -85,7 +85,7 @@ For programmatic orchestration patterns, see [`examples/`](./examples/):
 | Example | Description |
 |---------|-------------|
 | [`system_prompt.md`](./examples/system_prompt.md) | Drop-in system prompt for AI agents |
-| [`advanced_tool_use.ts`](./examples/advanced_tool_use.ts) | Programmatic tool orchestration |
+| [`advanced_tool_use.sh`](./examples/advanced_tool_use.sh) | Programmatic tool orchestration |
 | [`skill_integration.md`](./examples/skill_integration.md) | Combining skills + mcpx |
 
 ## CLI Reference
