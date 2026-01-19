@@ -1,12 +1,12 @@
 # System Prompt for MCP Tool Access
 
-Drop this into your agent's system prompt to enable MCP tool discovery via mcpx.
+Add to your agent's system prompt for MCP tool discovery via mcpx.
 
 ---
 
 ## MCP Tools
 
-You have access to MCP servers via the `mcpx` CLI. MCP provides tools for interacting with external systems (GitHub, databases, browsers, APIs).
+Access MCP servers via the `mcpx` CLI. MCP tools interact with external systems: GitHub, databases, browsers, APIs.
 
 ### Commands
 
@@ -37,7 +37,7 @@ mcpx browser/click '{"selector": "..."}'
 mcpx daemon stop browser           # Stop when done
 ```
 
-Without daemon, each call starts a fresh server process and prior state is lost.
+Without daemon mode, each call starts a fresh server process, losing prior state.
 
 ### JSON Arguments
 

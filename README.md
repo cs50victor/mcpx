@@ -4,7 +4,7 @@ On-demand MCP tool discovery for AI agents. Fetch schemas only when needed, not 
 
 ## The Problem
 
-Traditional MCP integration loads all tool definitions into the agent's context window upfront. Thousands of schema tokens are consumed before any work begins. As you add more MCP servers, this becomes untenable.
+Traditional MCP integration loads all tool definitions into the agent's context window upfront. The context window consumes thousands of schema tokens before work begins. More MCP servers means more bloat.
 
 The Anthropic API requires tool definitions in the initial request, which has tradeoffs:
 
@@ -13,7 +13,7 @@ The Anthropic API requires tool definitions in the initial request, which has tr
 | API-level tools | Native integration, typed schemas | Token bloat, cache invalidation on changes |
 | CLI discovery (mcpx) | Lean context, cache-stable | Extra inference per discovery call |
 
-With API-level tools, adding or removing tools invalidates [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching), increasing cost of subsequent requests. Even deferred loading requires declaring which tools exist at conversation start.
+API-level tool changes invalidate [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching), forcing recomputation and higher costs on subsequent requests. Even deferred loading requires declaring tools at conversation start.
 
 mcpx sidesteps these constraints by operating at the **execution layer** instead of the API layer:
 
@@ -74,13 +74,11 @@ mcpx filesystem/read_file         # Get tool's JSON schema
 mcpx filesystem/read_file '{"path": "./README.md"}'  # Call it
 ```
 
-That's it. Your agent now has access to MCP tools without loading schemas upfront.
+Your agent now accesses MCP tools without loading schemas upfront.
 
 ## Agent Integration
 
-Add mcpx to your agent's system prompt. See [`examples/system_prompt.md`](./examples/system_prompt.md) for a drop-in template.
-
-For programmatic orchestration patterns, see [`examples/`](./examples/):
+Add mcpx to your agent's system prompt. See [`examples/system_prompt.md`](./examples/system_prompt.md) for a drop-in template, or [`examples/`](./examples/) for programmatic orchestration patterns:
 
 | Example | Description |
 |---------|-------------|

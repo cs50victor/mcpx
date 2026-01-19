@@ -1,7 +1,3 @@
-/**
- * MCP-CLI Configuration Types and Loader
- */
-
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -15,9 +11,6 @@ import {
   serverNotFoundError,
 } from './errors.js';
 
-/**
- * stdio server configuration (local process)
- */
 export interface StdioServerConfig {
   command: string;
   args?: string[];
@@ -25,9 +18,6 @@ export interface StdioServerConfig {
   cwd?: string;
 }
 
-/**
- * HTTP server configuration (remote)
- */
 export interface HttpServerConfig {
   url: string;
   headers?: Record<string, string>;
@@ -38,52 +28,31 @@ export type ServerConfig = StdioServerConfig | HttpServerConfig;
 
 export interface McpServersConfig {
   mcpServers: Record<string, ServerConfig>;
-  /** Internal: tracks where config was loaded from */
   _configSource?: string;
 }
 
-/**
- * Check if a server config is HTTP-based
- */
 export function isHttpServer(config: ServerConfig): config is HttpServerConfig {
   return 'url' in config;
 }
 
-/**
- * Check if a server config is stdio-based
- */
 export function isStdioServer(
   config: ServerConfig,
 ): config is StdioServerConfig {
   return 'command' in config;
 }
 
-// ============================================================================
-// Environment Variables & Runtime Configuration
-// ============================================================================
-
-/**
- * Default configuration values - centralized to avoid inline magic numbers
- */
-export const DEFAULT_TIMEOUT_SECONDS = 1800; // 30 minutes
+export const DEFAULT_TIMEOUT_SECONDS = 1800;
 export const DEFAULT_TIMEOUT_MS = DEFAULT_TIMEOUT_SECONDS * 1000;
 export const DEFAULT_CONCURRENCY = 5;
 export const DEFAULT_MAX_RETRIES = 3;
-export const DEFAULT_RETRY_DELAY_MS = 1000; // 1 second base delay
+export const DEFAULT_RETRY_DELAY_MS = 1000;
 
-/**
- * Debug logging utility - only logs when MCP_DEBUG is set
- */
 export function debug(message: string): void {
   if (process.env.MCP_DEBUG) {
     console.error(`[mcpx] ${message}`);
   }
 }
 
-/**
- * Get configured timeout in milliseconds
- * @env MCP_TIMEOUT - timeout in seconds (default: 1800 = 30 minutes)
- */
 export function getTimeoutMs(): number {
   const envTimeout = process.env.MCP_TIMEOUT;
   if (envTimeout) {
@@ -95,10 +64,6 @@ export function getTimeoutMs(): number {
   return DEFAULT_TIMEOUT_MS;
 }
 
-/**
- * Get concurrency limit for parallel server connections
- * @env MCP_CONCURRENCY - max parallel connections (default: 5)
- */
 export function getConcurrencyLimit(): number {
   const envConcurrency = process.env.MCP_CONCURRENCY;
   if (envConcurrency) {
@@ -110,10 +75,6 @@ export function getConcurrencyLimit(): number {
   return DEFAULT_CONCURRENCY;
 }
 
-/**
- * Get max retry attempts for transient failures
- * @env MCP_MAX_RETRIES - max retry attempts (default: 3, use 0 to disable retries)
- */
 export function getMaxRetries(): number {
   const envRetries = process.env.MCP_MAX_RETRIES;
   if (envRetries) {
@@ -125,10 +86,6 @@ export function getMaxRetries(): number {
   return DEFAULT_MAX_RETRIES;
 }
 
-/**
- * Get base delay for retry backoff in milliseconds
- * @env MCP_RETRY_DELAY - base delay in milliseconds (default: 1000)
- */
 export function getRetryDelayMs(): number {
   const envDelay = process.env.MCP_RETRY_DELAY;
   if (envDelay) {
@@ -140,10 +97,6 @@ export function getRetryDelayMs(): number {
   return DEFAULT_RETRY_DELAY_MS;
 }
 
-/**
- * Check if strict environment variable mode is enabled
- * @env MCP_STRICT_ENV - set to "false" to warn instead of error (default: true)
- */
 function isStrictEnvMode(): boolean {
   const value = process.env.MCP_STRICT_ENV?.toLowerCase();
   return value !== 'false' && value !== '0';
@@ -183,16 +136,12 @@ function substituteEnvVars(value: string): string {
         }),
       );
     }
-    // Non-strict mode: warn but continue
     console.error(`[mcpx] Warning: ${message}`);
   }
 
   return result;
 }
 
-/**
- * Recursively substitute environment variables in an object
- */
 function substituteEnvVarsInObject<T>(obj: T): T {
   if (typeof obj === 'string') {
     return substituteEnvVars(obj) as T;
@@ -210,17 +159,11 @@ function substituteEnvVarsInObject<T>(obj: T): T {
   return obj;
 }
 
-/**
- * Get default config search paths
- */
 function getDefaultConfigPaths(): string[] {
   const paths: string[] = [];
   const home = homedir();
 
-  // Current directory
   paths.push(resolve('./mcp_servers.json'));
-
-  // Home directory variants
   paths.push(join(home, '.mcp_servers.json'));
   paths.push(join(home, '.config', 'mcp', 'mcp_servers.json'));
 
@@ -241,9 +184,6 @@ export interface ConfigPathsResult {
   envVar: string | undefined;
 }
 
-/**
- * Get all config paths with their status (for `mcpx config` command)
- */
 export function getConfigPaths(explicitPath?: string): ConfigPathsResult {
   const envPath = process.env.MCP_CONFIG_PATH;
 
@@ -278,24 +218,16 @@ export function getConfigPaths(explicitPath?: string): ConfigPathsResult {
   return { active, activeSource, searchPaths: pathInfos, envVar: envPath };
 }
 
-/**
- * Check if a string looks like inline JSON config (starts with '{')
- */
 function isInlineJson(value: string): boolean {
   return value.trimStart().startsWith('{');
 }
 
-/**
- * Load and parse MCP servers configuration
- * Supports both file paths and inline JSON (when value starts with '{')
- */
 export async function loadConfig(
   explicitPath?: string,
 ): Promise<McpServersConfig> {
   let config: McpServersConfig;
   let configSource: string;
 
-  // Check for inline JSON config (starts with '{')
   const inlineValue = explicitPath ?? process.env.MCP_CONFIG_PATH;
   if (inlineValue && isInlineJson(inlineValue)) {
     configSource = '<inline>';
@@ -309,7 +241,6 @@ export async function loadConfig(
       );
     }
   } else {
-    // File-based config (existing behavior)
     let configPath: string | undefined;
 
     if (explicitPath) {
@@ -351,19 +282,16 @@ export async function loadConfig(
     }
   }
 
-  // Validate structure
   if (!config.mcpServers || typeof config.mcpServers !== 'object') {
     throw new Error(formatCliError(configMissingFieldError(configSource)));
   }
 
-  // Warn if no servers are configured
   if (Object.keys(config.mcpServers).length === 0) {
     console.error(
       '[mcpx] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.',
     );
   }
 
-  // Validate individual server configs
   for (const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
     if (!serverConfig || typeof serverConfig !== 'object') {
       throw new Error(
@@ -406,18 +334,12 @@ export async function loadConfig(
     }
   }
 
-  // Substitute environment variables
   config = substituteEnvVarsInObject(config);
-
-  // Track config source for error messages
   config._configSource = configSource;
 
   return config;
 }
 
-/**
- * Get a specific server config by name
- */
 export function getServerConfig(
   config: McpServersConfig,
   serverName: string,
@@ -434,9 +356,6 @@ export function getServerConfig(
   return server;
 }
 
-/**
- * List all server names
- */
 export function listServerNames(config: McpServersConfig): string[] {
   return Object.keys(config.mcpServers);
 }

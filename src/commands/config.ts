@@ -1,7 +1,3 @@
-/**
- * Config command - Show config file locations and status
- */
-
 import { type ConfigPathsResult, getConfigPaths } from '../config.js';
 
 export interface ConfigOptions {

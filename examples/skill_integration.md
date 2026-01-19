@@ -1,6 +1,6 @@
 # Skills + mcpx Integration
 
-Skills encode procedural knowledge (when/why to use tools). mcpx provides connectivity (how to access tools). Together they enable reliable, consistent agent workflows.
+Skills encode procedural knowledge: when and why to use tools. mcpx provides connectivity: how to access tools. Together they enable reliable agent workflows.
 
 ## The Separation
 
@@ -41,7 +41,7 @@ When asked to review a pull request:
    ```
 ```
 
-The skill defines the workflow. mcpx commands are referenced but not explained in detail. The agent already knows how to discover schemas via `mcpx github/<tool>`.
+The skill defines the workflow. mcpx commands appear without detailed explanation; the agent discovers schemas via `mcpx github/<tool>`.
 
 ## Example: Research Skill with Multiple Sources
 
@@ -91,10 +91,10 @@ One skill can orchestrate multiple MCP servers:
 
 ## Best Practices
 
-1. **Skills stay generic about mcpx syntax** - Don't explain `--json` flags or error handling in skills. The system prompt covers that.
+1. **Keep skills generic about mcpx syntax** - Leave `--json` flags and error handling to the system prompt.
 
-2. **Skills focus on domain logic** - What to check, in what order, what output format.
+2. **Focus skills on domain logic** - What to check, in what order, what output format.
 
-3. **One skill per workflow** - Don't combine "PR review" and "issue triage" in one skill.
+3. **One skill per workflow** - Separate "PR review" from "issue triage."
 
-4. **Reference tools by name** - Use `mcpx server/tool` in examples. Agents will discover schemas as needed.
+4. **Reference tools by name** - Use `mcpx server/tool` in examples. Agents discover schemas as needed.

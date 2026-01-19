@@ -1,12 +1,7 @@
-/**
- * Output formatting utilities
- */
-
 import type { ToolInfo } from './client.js';
 import type { ServerConfig } from './config.js';
 import { isHttpServer } from './config.js';
 
-// ANSI color codes
 const colors = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
@@ -18,24 +13,15 @@ const colors = {
   magenta: '\x1b[35m',
 };
 
-/**
- * Check if output should be colorized
- */
 function shouldColorize(): boolean {
   return process.stdout.isTTY && !process.env.NO_COLOR;
 }
 
-/**
- * Apply color if terminal supports it
- */
 function color(text: string, colorCode: string): string {
   if (!shouldColorize()) return text;
   return `${colorCode}${text}${colors.reset}`;
 }
 
-/**
- * Format server list for display
- */
 export function formatServerList(
   servers: Array<{ name: string; tools: ToolInfo[] }>,
   withDescriptions: boolean,
@@ -53,15 +39,12 @@ export function formatServerList(
       }
     }
 
-    lines.push(''); // Empty line between servers
+    lines.push('');
   }
 
   return lines.join('\n').trimEnd();
 }
 
-/**
- * Format search results
- */
 export function formatSearchResults(
   results: Array<{ server: string; tool: ToolInfo }>,
   withDescriptions: boolean,
@@ -80,9 +63,6 @@ export function formatSearchResults(
   return lines.join('\n');
 }
 
-/**
- * Format server details
- */
 export function formatServerDetails(
   serverName: string,
   config: ServerConfig,
@@ -114,7 +94,6 @@ export function formatServerDetails(
       lines.push(`    ${color(tool.description, colors.dim)}`);
     }
 
-    // Show parameters from schema
     const schema = tool.inputSchema as {
       properties?: Record<string, { type?: string; description?: string }>;
       required?: string[];
@@ -137,9 +116,6 @@ export function formatServerDetails(
   return lines.join('\n').trimEnd();
 }
 
-/**
- * Format tool schema
- */
 export function formatToolSchema(serverName: string, tool: ToolInfo): string {
   const lines: string[] = [];
 
@@ -163,14 +139,10 @@ export function formatToolSchema(serverName: string, tool: ToolInfo): string {
   return lines.join('\n');
 }
 
-/**
- * Format tool call result
- */
 export function formatToolResult(result: unknown): string {
   if (typeof result === 'object' && result !== null) {
     const r = result as { content?: Array<{ type: string; text?: string }> };
 
-    // Handle MCP tool result format
     if (r.content && Array.isArray(r.content)) {
       const textParts = r.content
         .filter((c) => c.type === 'text' && c.text)
@@ -182,20 +154,13 @@ export function formatToolResult(result: unknown): string {
     }
   }
 
-  // Fallback to JSON
   return JSON.stringify(result, null, 2);
 }
 
-/**
- * Format as JSON
- */
 export function formatJson(data: unknown): string {
   return JSON.stringify(data, null, 2);
 }
 
-/**
- * Format error message
- */
 export function formatError(message: string): string {
   return color(`Error: ${message}`, '\x1b[31m'); // Red
 }

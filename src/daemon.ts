@@ -46,9 +46,6 @@ function getIdleTimeoutMs(): number {
   return DEFAULT_IDLE_MS;
 }
 
-/**
- * Get transport type for display (stdio or http)
- */
 function getTransportType(config: ServerConfig): 'stdio' | 'http' {
   return isHttpServer(config) ? 'http' : 'stdio';
 }
@@ -194,12 +191,6 @@ interface DaemonResponse {
   error?: string;
 }
 
-/**
- * Start daemon and optionally connect servers
- *
- * @param config - MCP servers configuration (required if serverNames provided)
- * @param serverNames - Specific servers to start (empty = all from config)
- */
 export async function startDaemon(
   config?: McpServersConfig,
   serverNames?: string[],
@@ -212,21 +203,17 @@ export async function startDaemon(
   const socketPath = getSocketPath();
   const daemonWasRunning = await isDaemonRunning();
 
-  // Start daemon process if not running
   if (!daemonWasRunning) {
-    // Clean up stale socket if exists
     if (existsSync(socketPath)) {
       unlinkSync(socketPath);
     }
 
-    // Spawn detached daemon process
     const proc = Bun.spawn(['bun', 'run', process.argv[1], 'daemon', 'start'], {
       env: { ...process.env, _MCPX_DAEMON: '1' },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     proc.unref();
 
-    // Wait for socket to appear
     await Bun.sleep(300);
     if (!(await isDaemonRunning())) {
       console.error('Failed to start daemon process');
@@ -241,7 +228,6 @@ export async function startDaemon(
     console.log(`  Socket: ${socketPath}`);
   }
 
-  // If no config provided, we're done (just started the daemon process)
   if (!config) {
     if (daemonWasRunning) {
       console.log('Daemon is already running');
@@ -251,13 +237,11 @@ export async function startDaemon(
     return;
   }
 
-  // Determine which servers to start
   const configSource = config._configSource || 'inline';
   const allServerNames = Object.keys(config.mcpServers);
   const toStart =
     serverNames && serverNames.length > 0 ? serverNames : allServerNames;
 
-  // Validate server names exist in config
   const invalid = toStart.filter((name) => !config.mcpServers[name]);
   if (invalid.length > 0) {
     console.error(
@@ -268,7 +252,6 @@ export async function startDaemon(
     process.exit(1);
   }
 
-  // Connect servers
   const started: string[] = [];
   const alreadyRunning: string[] = [];
   const failed: Array<{ name: string; error: string }> = [];
@@ -294,7 +277,6 @@ export async function startDaemon(
     }
   }
 
-  // Output results
   if (
     !daemonWasRunning &&
     started.length === 0 &&
@@ -329,7 +311,6 @@ export async function startDaemon(
     }
   }
 
-  // Helpful hints
   if (started.length > 0) {
     console.log('');
     console.log(
@@ -454,7 +435,7 @@ async function runDaemonServer(): Promise<void> {
 
           case 'shutdown': {
             const disconnected = await pool.releaseAll();
-            // Schedule shutdown after response
+            // NOTE(victor): schedule shutdown after response is sent
             setTimeout(() => {
               server.stop();
               process.exit(0);
@@ -493,7 +474,6 @@ async function runDaemonServer(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  // Minimal output for background process (logged to nowhere usually)
   debug('mcp-cli daemon started');
   debug(`  Socket: ${socketPath}`);
   debug(`  Idle timeout: ${idleMs}ms`);
@@ -518,9 +498,6 @@ export async function isDaemonRunning(): Promise<boolean> {
   }
 }
 
-/**
- * Check if a specific server is connected in the daemon
- */
 export async function isServerInDaemon(serverName: string): Promise<boolean> {
   const socketPath = getSocketPath();
   if (!existsSync(socketPath)) {
@@ -541,9 +518,6 @@ export async function isServerInDaemon(serverName: string): Promise<boolean> {
   }
 }
 
-/**
- * Connect a server to the daemon (daemon must be running)
- */
 export async function connectServerToDaemon(
   serverName: string,
   config: ServerConfig,
@@ -574,9 +548,6 @@ export async function connectServerToDaemon(
   return { alreadyConnected: response.alreadyConnected === true };
 }
 
-/**
- * Disconnect a specific server from the daemon
- */
 export async function disconnectServerFromDaemon(
   serverName: string,
 ): Promise<boolean> {
@@ -652,12 +623,6 @@ export async function listDaemonServersDetailed(): Promise<ServerInfo[]> {
   return response.serversDetailed ?? [];
 }
 
-/**
- * Stop the daemon or a specific server
- *
- * @param serverName - If provided, stop only this server (keeps daemon running)
- * @param force - If true, skip the >1 connection check for full daemon stop
- */
 export async function stopDaemon(
   serverName?: string,
   force = false,
@@ -670,7 +635,6 @@ export async function stopDaemon(
     return;
   }
 
-  // If serverName provided, just disconnect that server
   if (serverName) {
     const wasConnected = await disconnectServerFromDaemon(serverName);
     if (wasConnected) {
@@ -696,8 +660,6 @@ export async function stopDaemon(
     return;
   }
 
-  // Full daemon stop
-  // Check for active connections before stopping
   if (!force) {
     try {
       const servers = await listDaemonServers();
@@ -711,7 +673,7 @@ export async function stopDaemon(
         process.exit(1);
       }
     } catch {
-      // Daemon not responding, proceed with cleanup
+      // NOTE(victor): daemon not responding - proceed with socket cleanup
     }
   }
 
@@ -732,7 +694,6 @@ export async function stopDaemon(
       console.log('Daemon stopped (no active servers)');
     }
   } catch {
-    // Socket exists but daemon not responding - clean up stale socket
     unlinkSync(socketPath);
     console.log('Cleaned up stale daemon socket (daemon was not responding)');
   }

@@ -1,7 +1,3 @@
-/**
- * List command - List all servers and their tools
- */
-
 import {
   type ToolInfo,
   connectToServer,
@@ -52,7 +48,6 @@ async function processWithConcurrency<T, R>(
     }
   }
 
-  // Start workers up to concurrency limit
   const workers = Array.from(
     { length: Math.min(maxConcurrency, items.length) },
     () => worker(),
@@ -62,9 +57,6 @@ async function processWithConcurrency<T, R>(
   return results;
 }
 
-/**
- * Fetch tools from a single server
- */
 async function fetchServerTools(
   serverName: string,
   config: McpServersConfig,
@@ -91,9 +83,6 @@ async function fetchServerTools(
   }
 }
 
-/**
- * Execute the list command
- */
 export async function listCommand(options: ListOptions): Promise<void> {
   let config: McpServersConfig;
 
@@ -118,7 +107,6 @@ export async function listCommand(options: ListOptions): Promise<void> {
     `Processing ${serverNames.length} servers with concurrency ${concurrencyLimit}`,
   );
 
-  // Process servers in parallel with concurrency limit
   const servers = await processWithConcurrency(
     serverNames,
     (name) => fetchServerTools(name, config),
@@ -134,7 +122,6 @@ export async function listCommand(options: ListOptions): Promise<void> {
     );
   }
 
-  // Convert errors to tool-like display for human output
   const displayServers = servers.map((s) => ({
     name: s.name,
     tools: s.error

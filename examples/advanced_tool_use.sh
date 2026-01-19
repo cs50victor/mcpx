@@ -2,25 +2,24 @@
 #
 # Programmatic Tool Orchestration
 #
-# This pattern moves data processing outside the model's context window.
-# Instead of making N tool calls and accumulating results in context,
-# write a script that handles orchestration programmatically.
+# Move data processing outside the model's context window.
+# One script replaces N tool calls, keeping intermediate results out of context.
 #
 # Benefits:
-# - Reduces inference passes (one script vs. N tool calls)
-# - Avoids context pollution from large intermediate results
-# - Enables parallel execution and error handling
+# - Fewer inference passes
+# - Clean context (large results stay in the script)
+# - Parallel execution and error handling
 
 set -euo pipefail
 
-# Example 1: Search and aggregate across multiple servers
+# Example 1: Search and aggregate across servers
 search_across_servers() {
     local query="${1:-mcp}"
 
     echo "Searching for: $query"
     echo "---"
 
-    # Parallel search across servers (if they exist)
+    # Parallel search across available servers
     for server in github gitlab; do
         if mcpx "$server" &>/dev/null; then
             echo "Results from $server:"
@@ -42,7 +41,7 @@ analyze_repository() {
     local info
     info=$(mcpx github/get_repository "{\"owner\": \"$owner\", \"repo\": \"$repo\"}" --json)
 
-    # Extract fields with jq
+    # Extract fields
     local name stars
     name=$(echo "$info" | jq -r '.content[0].text' | jq -r '.name // "unknown"')
     stars=$(echo "$info" | jq -r '.content[0].text' | jq -r '.stargazers_count // 0')
@@ -58,7 +57,7 @@ analyze_repository() {
     echo "Open issues: $issues"
 }
 
-# Example 3: Browser automation with daemon (persistent session)
+# Example 3: Browser automation with persistent session
 scrape_with_browser() {
     local url="${1:-https://example.com}"
     local selector="${2:-h1}"
@@ -66,7 +65,7 @@ scrape_with_browser() {
     echo "Scraping $url (selector: $selector)"
     echo "---"
 
-    # Start browser in daemon mode for persistent session
+    # Start browser daemon for session persistence
     mcpx daemon start browser
 
     # Ensure cleanup on exit
@@ -90,12 +89,12 @@ process_files() {
     local files
     files=$(mcpx filesystem/search_files "{\"path\": \"$directory\", \"pattern\": \"$pattern\"}" --json | jq -r '.content[0].text' | jq -r '.[]')
 
-    # Process each file
+    # Process files
     local count=0
     while IFS= read -r file; do
         if [[ -n "$file" ]]; then
             echo "Processing: $file"
-            # Example: count lines
+            # Count lines
             local content
             content=$(mcpx filesystem/read_file "{\"path\": \"$file\"}" --raw)
             local lines

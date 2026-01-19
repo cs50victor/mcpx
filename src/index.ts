@@ -1,15 +1,4 @@
 #!/usr/bin/env bun
-/**
- * mcpx - A lightweight CLI for interacting with MCP servers
- *
- * Commands:
- *   mcpx                         List all servers and tools
- *   mcpx config                  Show config file locations
- *   mcpx grep <pattern>          Search tools by glob pattern
- *   mcpx <server>                Show server details
- *   mcpx <server>/<tool>         Show tool schema
- *   mcpx <server>/<tool> <json>  Call tool with arguments
- */
 
 import { closest, distance } from 'fastest-levenshtein';
 import { callCommand } from './commands/call.js';
@@ -64,9 +53,6 @@ interface ParsedArgs {
   daemonForce?: boolean;
 }
 
-/**
- * Parse command line arguments
- */
 function parseArgs(args: string[]): ParsedArgs {
   const result: ParsedArgs = {
     command: 'list',
@@ -150,7 +136,7 @@ function parseArgs(args: string[]): ParsedArgs {
     result.target = positional[0];
     if (positional.length > 1) {
       result.command = 'call';
-      // Support '-' to indicate stdin (Unix convention)
+      // NOTE(victor): '-' indicates stdin (Unix convention)
       const argsValue = positional.slice(1).join(' ');
       result.args = argsValue === '-' ? undefined : argsValue;
     } else {
@@ -166,7 +152,6 @@ function parseArgs(args: string[]): ParsedArgs {
       process.exit(ErrorCode.CLIENT_ERROR);
     }
 
-    // Just server name
     result.command = 'info';
     result.target = positional[0];
   }
@@ -174,9 +159,6 @@ function parseArgs(args: string[]): ParsedArgs {
   return result;
 }
 
-/**
- * Print help message
- */
 function printHelp(): void {
   const socketPath = getDaemonSocketPath();
   console.log(`
@@ -250,9 +232,6 @@ Config File:
 `);
 }
 
-/**
- * Main entry point
- */
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
@@ -310,7 +289,6 @@ async function main(): Promise<void> {
     case 'daemon':
       switch (args.daemonAction) {
         case 'start': {
-          // Load config to get server definitions
           let config: McpServersConfig;
           try {
             config = await loadConfig(args.configPath);
@@ -322,8 +300,6 @@ async function main(): Promise<void> {
           break;
         }
         case 'stop':
-          // If servers specified, stop first one (can only stop one at a time)
-          // If no servers and --force, stop daemon entirely with force
           await stopDaemon(args.daemonServers?.[0], args.daemonForce);
           break;
         case 'status':
@@ -334,17 +310,14 @@ async function main(): Promise<void> {
   }
 }
 
-// Handle graceful shutdown on SIGINT/SIGTERM
 process.on('SIGINT', () => {
-  process.exit(130); // 128 + SIGINT(2)
+  process.exit(130);
 });
 process.on('SIGTERM', () => {
-  process.exit(143); // 128 + SIGTERM(15)
+  process.exit(143);
 });
 
-// Run
 main().catch((error) => {
-  // Error message already formatted by command handlers
   console.error(error.message);
   process.exit(ErrorCode.CLIENT_ERROR);
 });

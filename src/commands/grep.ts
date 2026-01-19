@@ -1,7 +1,3 @@
-/**
- * Grep command - Search tools by pattern
- */
-
 import {
   type ToolInfo,
   connectToServer,
@@ -58,7 +54,6 @@ async function processWithConcurrency<T, R>(
     }
   }
 
-  // Start workers up to concurrency limit
   const workers = Array.from(
     { length: Math.min(maxConcurrency, items.length) },
     () => worker(),
@@ -68,9 +63,6 @@ async function processWithConcurrency<T, R>(
   return results;
 }
 
-/**
- * Search tools in a single server
- */
 async function searchServerTools(
   serverName: string,
   config: McpServersConfig,
@@ -85,7 +77,6 @@ async function searchServerTools(
       const results: SearchResult[] = [];
 
       for (const tool of tools) {
-        // Match against tool name, server/tool path, or description
         const fullPath = `${serverName}/${tool.name}`;
         const matchesName = pattern.test(tool.name);
         const matchesPath = pattern.test(fullPath);
@@ -109,9 +100,6 @@ async function searchServerTools(
   }
 }
 
-/**
- * Execute the grep command
- */
 export async function grepCommand(options: GrepOptions): Promise<void> {
   let config: McpServersConfig;
 
@@ -138,7 +126,6 @@ export async function grepCommand(options: GrepOptions): Promise<void> {
     `Searching ${serverNames.length} servers for pattern "${options.pattern}" (concurrency: ${concurrencyLimit})`,
   );
 
-  // Process servers in parallel with concurrency limit
   const serverResults = await processWithConcurrency(
     serverNames,
     (serverName) => searchServerTools(serverName, config, pattern),
@@ -160,7 +147,6 @@ export async function grepCommand(options: GrepOptions): Promise<void> {
     (r) => !findDisabledMatch(`${r.server}/${r.tool.name}`, disabledPatterns),
   );
 
-  // Show failed servers warning
   if (failedServers.length > 0) {
     console.error(
       `Warning: ${failedServers.length} server(s) failed to connect: ${failedServers.join(', ')}`,
