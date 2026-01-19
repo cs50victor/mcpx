@@ -24,7 +24,7 @@ import {
   loadConfig,
   loadDisabledTools,
 } from '../config.js';
-import { callViaDaemon, isDaemonRunning } from '../daemon.js';
+import { callViaDaemon, isServerInDaemon } from '../daemon.js';
 import {
   ErrorCode,
   formatCliError,
@@ -170,12 +170,15 @@ export async function callCommand(options: CallOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
-  if (await isDaemonRunning()) {
+  // Check if this specific server is in the daemon (explicit per-server control)
+  if (await isServerInDaemon(serverName)) {
     debug(`routing call through daemon: ${serverName}/${toolName}`);
+    const configSource = config._configSource || 'unknown';
     try {
       const result = await callViaDaemon(
         serverName,
         serverConfig,
+        configSource,
         toolName,
         args,
       );

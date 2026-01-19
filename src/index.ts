@@ -22,6 +22,8 @@ import {
   DEFAULT_MAX_RETRIES,
   DEFAULT_RETRY_DELAY_MS,
   DEFAULT_TIMEOUT_SECONDS,
+  type McpServersConfig,
+  loadConfig,
 } from './config.js';
 
 import {
@@ -58,6 +60,7 @@ interface ParsedArgs {
   withDescriptions: boolean;
   configPath?: string;
   daemonAction?: 'start' | 'stop' | 'status';
+  daemonServers?: string[];
   daemonForce?: boolean;
 }
 
@@ -131,6 +134,10 @@ function parseArgs(args: string[]): ParsedArgs {
       process.exit(ErrorCode.CLIENT_ERROR);
     }
     result.daemonAction = action;
+    // Collect server names after the action (e.g., daemon start server1 server2)
+    if (positional.length > 2) {
+      result.daemonServers = positional.slice(2);
+    }
   } else if (positional[0] === 'grep') {
     result.command = 'grep';
     result.pattern = positional[1];
@@ -218,15 +225,21 @@ Examples:
   # Inline config (no config file needed):
   mcpx -c '{"mcpServers":{"s":{"command":"npx","args":["-y","@mcp/server"]}}}' s/tool
 
-Daemon Mode:
-  mcpx daemon start                          # Start daemon (auto-backgrounds)
-  mcpx daemon status                         # Show daemon status
-  mcpx daemon stop                           # Stop daemon
+Daemon Mode (persistent connections for stateful servers):
+  mcpx daemon start                          # Start daemon + all servers from config
+  mcpx daemon start <server...>              # Start daemon + specific server(s)
+  mcpx daemon start browser -c '{...}'       # Start with inline config
+  mcpx daemon stop                           # Stop daemon entirely
+  mcpx daemon stop <server>                  # Stop specific server, keep daemon
+  mcpx daemon stop --force                   # Force stop (bypasses >1 connection check)
+  mcpx daemon status                         # Show daemon status + active servers
 
-  Keeps MCP server connections alive between tool calls. Required for stateful
-  servers where sequential operations share state (e.g., browser sessions,
-  database transactions, file handles). Without the daemon, each tool call
-  starts a fresh server process and any prior state is lost.
+  Required for stateful servers where sequential operations share state
+  (e.g., browser sessions, database transactions, file handles).
+
+  Without daemon: each 'mcpx server/tool' call connects, runs, disconnects.
+  With daemon: 'mcpx daemon start server' keeps connection alive, then
+               'mcpx server/tool' reuses that persistent connection.
 
 Config File:
   The CLI looks for mcp_servers.json in:
@@ -296,11 +309,22 @@ async function main(): Promise<void> {
 
     case 'daemon':
       switch (args.daemonAction) {
-        case 'start':
-          await startDaemon();
+        case 'start': {
+          // Load config to get server definitions
+          let config: McpServersConfig;
+          try {
+            config = await loadConfig(args.configPath);
+          } catch (error) {
+            console.error((error as Error).message);
+            process.exit(ErrorCode.CLIENT_ERROR);
+          }
+          await startDaemon(config, args.daemonServers);
           break;
+        }
         case 'stop':
-          await stopDaemon(args.daemonForce);
+          // If servers specified, stop first one (can only stop one at a time)
+          // If no servers and --force, stop daemon entirely with force
+          await stopDaemon(args.daemonServers?.[0], args.daemonForce);
           break;
         case 'status':
           await daemonStatus();
