@@ -45,7 +45,7 @@ jobs:
         run: bun install --frozen-lockfile
       
       - name: Run unit tests
-        run: bun test tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts tests/grep.test.ts
+        run: bun test tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts tests/grep.test.ts tests/daemon.test.ts
       
       - name: Run integration tests
         run: bun test --timeout 60000 tests/integration/

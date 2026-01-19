@@ -208,7 +208,8 @@ export async function startDaemon(
       unlinkSync(socketPath);
     }
 
-    const proc = Bun.spawn(['bun', 'run', process.argv[1], 'daemon', 'start'], {
+    const spawnArgs = getDaemonSpawnArgs(process.argv[1], process.execPath);
+    const proc = Bun.spawn(spawnArgs, {
       env: { ...process.env, _MCPX_DAEMON: '1' },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
@@ -750,6 +751,22 @@ export async function daemonStatus(): Promise<void> {
     console.log('No servers currently connected.');
     console.log('To add a server: mcpx daemon start <server>');
   }
+}
+
+/**
+ * Determines the correct spawn arguments for re-launching the daemon process.
+ * Handles both dev mode (bun running a script) and production (compiled binary).
+ *
+ * @param argv1 - process.argv[1] value
+ * @param execPath - process.execPath value
+ * @returns Array of spawn arguments
+ */
+export function getDaemonSpawnArgs(argv1: string, execPath: string): string[] {
+  // Compiled binaries have virtual bunfs paths that don't exist on disk
+  const isCompiledBinary = argv1?.startsWith('/$bunfs/');
+  return isCompiledBinary
+    ? [execPath, 'daemon', 'start']
+    : ['bun', 'run', argv1, 'daemon', 'start'];
 }
 
 function formatIdleTime(seconds: number): string {
