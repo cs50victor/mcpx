@@ -1,7 +1,3 @@
-/**
- * Info command - Show server or tool details
- */
-
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { connectToServer, listTools, safeClose } from '../client.js';
 import {
@@ -32,9 +28,6 @@ export interface InfoOptions {
   configPath?: string;
 }
 
-/**
- * Parse target into server and optional tool name
- */
 function parseTarget(target: string): { server: string; tool?: string } {
   const parts = target.split('/');
   if (parts.length === 1) {
@@ -43,9 +36,6 @@ function parseTarget(target: string): { server: string; tool?: string } {
   return { server: parts[0], tool: parts.slice(1).join('/') };
 }
 
-/**
- * Execute the info command
- */
 export async function infoCommand(options: InfoOptions): Promise<void> {
   let config: McpServersConfig;
 
@@ -103,7 +93,6 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
         process.exit(ErrorCode.CLIENT_ERROR);
       }
 
-      // Show specific tool schema
       const tools = await listTools(client);
       const tool = tools.find((t) => t.name === toolName);
 
@@ -134,7 +123,6 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
         console.log(formatToolSchema(serverName, tool));
       }
     } else {
-      // Show server details
       const tools = await listTools(client);
 
       const filteredTools = tools.filter(

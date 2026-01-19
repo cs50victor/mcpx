@@ -1,15 +1,4 @@
 #!/usr/bin/env bun
-/**
- * mcpx - A lightweight CLI for interacting with MCP servers
- *
- * Commands:
- *   mcpx                         List all servers and tools
- *   mcpx config                  Show config file locations
- *   mcpx grep <pattern>          Search tools by glob pattern
- *   mcpx <server>                Show server details
- *   mcpx <server>/<tool>         Show tool schema
- *   mcpx <server>/<tool> <json>  Call tool with arguments
- */
 
 import { closest, distance } from 'fastest-levenshtein';
 import { callCommand } from './commands/call.js';
@@ -22,6 +11,8 @@ import {
   DEFAULT_MAX_RETRIES,
   DEFAULT_RETRY_DELAY_MS,
   DEFAULT_TIMEOUT_SECONDS,
+  type McpServersConfig,
+  loadConfig,
 } from './config.js';
 
 import {
@@ -58,12 +49,10 @@ interface ParsedArgs {
   withDescriptions: boolean;
   configPath?: string;
   daemonAction?: 'start' | 'stop' | 'status';
+  daemonServers?: string[];
   daemonForce?: boolean;
 }
 
-/**
- * Parse command line arguments
- */
 function parseArgs(args: string[]): ParsedArgs {
   const result: ParsedArgs = {
     command: 'list',
@@ -131,6 +120,10 @@ function parseArgs(args: string[]): ParsedArgs {
       process.exit(ErrorCode.CLIENT_ERROR);
     }
     result.daemonAction = action;
+    // Collect server names after the action (e.g., daemon start server1 server2)
+    if (positional.length > 2) {
+      result.daemonServers = positional.slice(2);
+    }
   } else if (positional[0] === 'grep') {
     result.command = 'grep';
     result.pattern = positional[1];
@@ -143,7 +136,7 @@ function parseArgs(args: string[]): ParsedArgs {
     result.target = positional[0];
     if (positional.length > 1) {
       result.command = 'call';
-      // Support '-' to indicate stdin (Unix convention)
+      // NOTE(victor): '-' indicates stdin (Unix convention)
       const argsValue = positional.slice(1).join(' ');
       result.args = argsValue === '-' ? undefined : argsValue;
     } else {
@@ -159,7 +152,6 @@ function parseArgs(args: string[]): ParsedArgs {
       process.exit(ErrorCode.CLIENT_ERROR);
     }
 
-    // Just server name
     result.command = 'info';
     result.target = positional[0];
   }
@@ -167,9 +159,6 @@ function parseArgs(args: string[]): ParsedArgs {
   return result;
 }
 
-/**
- * Print help message
- */
 function printHelp(): void {
   const socketPath = getDaemonSocketPath();
   console.log(`
@@ -218,15 +207,21 @@ Examples:
   # Inline config (no config file needed):
   mcpx -c '{"mcpServers":{"s":{"command":"npx","args":["-y","@mcp/server"]}}}' s/tool
 
-Daemon Mode:
-  mcpx daemon start                          # Start daemon (auto-backgrounds)
-  mcpx daemon status                         # Show daemon status
-  mcpx daemon stop                           # Stop daemon
+Daemon Mode (persistent connections for stateful servers):
+  mcpx daemon start                          # Start daemon + all servers from config
+  mcpx daemon start <server...>              # Start daemon + specific server(s)
+  mcpx daemon start browser -c '{...}'       # Start with inline config
+  mcpx daemon stop                           # Stop daemon entirely
+  mcpx daemon stop <server>                  # Stop specific server, keep daemon
+  mcpx daemon stop --force                   # Force stop (bypasses >1 connection check)
+  mcpx daemon status                         # Show daemon status + active servers
 
-  Keeps MCP server connections alive between tool calls. Required for stateful
-  servers where sequential operations share state (e.g., browser sessions,
-  database transactions, file handles). Without the daemon, each tool call
-  starts a fresh server process and any prior state is lost.
+  Required for stateful servers where sequential operations share state
+  (e.g., browser sessions, database transactions, file handles).
+
+  Without daemon: each 'mcpx server/tool' call connects, runs, disconnects.
+  With daemon: 'mcpx daemon start server' keeps connection alive, then
+               'mcpx server/tool' reuses that persistent connection.
 
 Config File:
   The CLI looks for mcp_servers.json in:
@@ -237,9 +232,6 @@ Config File:
 `);
 }
 
-/**
- * Main entry point
- */
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
@@ -296,11 +288,19 @@ async function main(): Promise<void> {
 
     case 'daemon':
       switch (args.daemonAction) {
-        case 'start':
-          await startDaemon();
+        case 'start': {
+          let config: McpServersConfig;
+          try {
+            config = await loadConfig(args.configPath);
+          } catch (error) {
+            console.error((error as Error).message);
+            process.exit(ErrorCode.CLIENT_ERROR);
+          }
+          await startDaemon(config, args.daemonServers);
           break;
+        }
         case 'stop':
-          await stopDaemon(args.daemonForce);
+          await stopDaemon(args.daemonServers?.[0], args.daemonForce);
           break;
         case 'status':
           await daemonStatus();
@@ -310,17 +310,14 @@ async function main(): Promise<void> {
   }
 }
 
-// Handle graceful shutdown on SIGINT/SIGTERM
 process.on('SIGINT', () => {
-  process.exit(130); // 128 + SIGINT(2)
+  process.exit(130);
 });
 process.on('SIGTERM', () => {
-  process.exit(143); // 128 + SIGTERM(15)
+  process.exit(143);
 });
 
-// Run
 main().catch((error) => {
-  // Error message already formatted by command handlers
   console.error(error.message);
   process.exit(ErrorCode.CLIENT_ERROR);
 });

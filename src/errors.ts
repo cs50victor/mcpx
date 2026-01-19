@@ -1,25 +1,10 @@
-/**
- * Enhanced error handling with actionable messages for LLM recovery
- *
- * Each error includes:
- * - What went wrong (error type)
- * - Why it failed (details)
- * - How to fix it (recovery suggestions)
- */
-
-/**
- * Error codes matching exit codes
- */
 export enum ErrorCode {
-  CLIENT_ERROR = 1, // Invalid arguments, config issues
-  SERVER_ERROR = 2, // Tool execution failed
-  NETWORK_ERROR = 3, // Connection failed
-  AUTH_ERROR = 4, // Authentication failed
+  CLIENT_ERROR = 1,
+  SERVER_ERROR = 2,
+  NETWORK_ERROR = 3,
+  AUTH_ERROR = 4,
 }
 
-/**
- * Structured error for CLI output
- */
 export interface CliError {
   code: ErrorCode;
   type: string;
@@ -28,9 +13,6 @@ export interface CliError {
   suggestion?: string;
 }
 
-/**
- * Format a CLI error for stderr output
- */
 export function formatCliError(error: CliError): string {
   const lines: string[] = [];
 
@@ -46,10 +28,6 @@ export function formatCliError(error: CliError): string {
 
   return lines.join('\n');
 }
-
-// ============================================================================
-// Config Errors
-// ============================================================================
 
 export function configNotFoundError(path: string): CliError {
   return {
@@ -93,10 +71,6 @@ export function configMissingFieldError(path: string): CliError {
     suggestion: `Config must have structure: { "mcpServers": { "name": { "command": "...", "args": [...] } } }. Run 'mcpx --help' for full examples.`,
   };
 }
-
-// ============================================================================
-// Server Errors
-// ============================================================================
 
 export function serverNotFoundError(
   serverName: string,
@@ -149,10 +123,6 @@ export function serverConnectionError(
     suggestion,
   };
 }
-
-// ============================================================================
-// Tool Errors
-// ============================================================================
 
 export function toolNotFoundError(
   toolName: string,
@@ -214,10 +184,6 @@ export function toolExecutionError(
     suggestion,
   };
 }
-
-// ============================================================================
-// Argument Errors
-// ============================================================================
 
 export function invalidTargetError(target: string): CliError {
   return {

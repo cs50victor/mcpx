@@ -1,12 +1,3 @@
-/**
- * Call command - Execute a tool with arguments
- *
- * Output behavior:
- * - Default: Raw text content to stdout (CLI-friendly)
- * - With --json: Full JSON response to stdout
- * - Errors always go to stderr
- */
-
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
   callTool,
@@ -24,7 +15,7 @@ import {
   loadConfig,
   loadDisabledTools,
 } from '../config.js';
-import { callViaDaemon, isDaemonRunning } from '../daemon.js';
+import { callViaDaemon, isServerInDaemon } from '../daemon.js';
 import {
   ErrorCode,
   formatCliError,
@@ -44,9 +35,6 @@ export interface CallOptions {
   configPath?: string;
 }
 
-/**
- * Parse target into server and tool name
- */
 function parseTarget(target: string): { server: string; tool: string } {
   const slashIndex = target.indexOf('/');
   if (slashIndex === -1) {
@@ -58,9 +46,6 @@ function parseTarget(target: string): { server: string; tool: string } {
   };
 }
 
-/**
- * Parse JSON arguments from string or stdin
- */
 async function parseArgs(
   argsString?: string,
 ): Promise<Record<string, unknown>> {
@@ -69,7 +54,7 @@ async function parseArgs(
   if (argsString) {
     jsonString = argsString;
   } else if (!process.stdin.isTTY) {
-    // Read from stdin with timeout - use timer cleanup to prevent memory leak
+    // NOTE(victor): timer cleanup prevents memory leak on stdin timeout
     const timeoutMs = getTimeoutMs();
     const chunks: Buffer[] = [];
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -94,7 +79,6 @@ async function parseArgs(
       if (timeoutId) clearTimeout(timeoutId);
     }
   } else {
-    // No arguments provided
     return {};
   }
 
@@ -111,9 +95,6 @@ async function parseArgs(
   }
 }
 
-/**
- * Execute the call command
- */
 export async function callCommand(options: CallOptions): Promise<void> {
   let config: McpServersConfig;
 
@@ -170,12 +151,14 @@ export async function callCommand(options: CallOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
-  if (await isDaemonRunning()) {
+  if (await isServerInDaemon(serverName)) {
     debug(`routing call through daemon: ${serverName}/${toolName}`);
+    const configSource = config._configSource || 'unknown';
     try {
       const result = await callViaDaemon(
         serverName,
         serverConfig,
+        configSource,
         toolName,
         args,
       );
@@ -201,7 +184,8 @@ export async function callCommand(options: CallOptions): Promise<void> {
   }
 
   let client: Client;
-  let close: () => Promise<void> = async () => {}; // Initialize to noop to prevent undefined access
+  // NOTE(victor): initialize to noop to prevent undefined access in finally block
+  let close: () => Promise<void> = async () => {};
 
   try {
     const connection = await connectToServer(serverName, serverConfig);
@@ -220,24 +204,20 @@ export async function callCommand(options: CallOptions): Promise<void> {
     const result = await callTool(client, toolName, args);
 
     if (options.json) {
-      // Full JSON response
       console.log(formatJson(result));
     } else {
-      // Default: extract text content (raw output)
       console.log(formatToolResult(result));
     }
   } catch (error) {
-    // Try to get available tools for better error message
     let availableTools: string[] | undefined;
     try {
       const tools = await listTools(client);
       availableTools = tools.map((t) => t.name);
     } catch {
-      // Ignore - we'll show error without tool list
+      // NOTE(victor): silently continue without tool list if listing fails
     }
 
     const errMsg = (error as Error).message;
-    // Check if it's a "tool not found" type error
     if (errMsg.includes('not found') || errMsg.includes('unknown tool')) {
       console.error(
         formatCliError(toolNotFoundError(toolName, serverName, availableTools)),

@@ -1,7 +1,3 @@
-/**
- * MCP Client - Connection management for MCP servers
- */
-
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -39,9 +35,6 @@ export interface ToolInfo {
   inputSchema: Record<string, unknown>;
 }
 
-/**
- * Retry configuration
- */
 interface RetryConfig {
   maxRetries: number;
   baseDelayMs: number;
@@ -49,15 +42,10 @@ interface RetryConfig {
   totalBudgetMs: number;
 }
 
-/**
- * Get retry config respecting MCP_TIMEOUT budget
- */
 function getRetryConfig(): RetryConfig {
   const totalBudgetMs = getTimeoutMs();
   const maxRetries = getMaxRetries();
   const baseDelayMs = getRetryDelayMs();
-
-  // Reserve at least 5s for the final attempt
   const retryBudgetMs = Math.max(0, totalBudgetMs - 5000);
 
   return {
@@ -91,11 +79,8 @@ export function isTransientError(error: Error): boolean {
     }
   }
 
-  // Fallback to message matching for errors without codes
   const message = error.message;
 
-  // HTTP transient errors - require status code at start or with HTTP context
-  // Pattern: "502", "502 Bad Gateway", "HTTP 502", "status 502", "status code 502"
   if (/^(502|503|504|429)\b/.test(message)) return true;
   if (/\b(http|status(\s+code)?)\s*(502|503|504|429)\b/i.test(message))
     return true;
@@ -106,7 +91,6 @@ export function isTransientError(error: Error): boolean {
   )
     return true;
 
-  // Generic network terms - more specific patterns
   if (/network\s*(error|fail|unavailable|timeout)/i.test(message)) return true;
   if (/connection\s*(reset|refused|timeout)/i.test(message)) return true;
   if (/\btimeout\b/i.test(message)) return true;
@@ -114,28 +98,17 @@ export function isTransientError(error: Error): boolean {
   return false;
 }
 
-/**
- * Calculate delay with exponential backoff and jitter
- */
 function calculateDelay(attempt: number, config: RetryConfig): number {
   const exponentialDelay = config.baseDelayMs * 2 ** attempt;
   const cappedDelay = Math.min(exponentialDelay, config.maxDelayMs);
-  // Add jitter (±25%)
   const jitter = cappedDelay * 0.25 * (Math.random() * 2 - 1);
   return Math.round(cappedDelay + jitter);
 }
 
-/**
- * Sleep for specified milliseconds
- */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Execute a function with retry logic for transient failures
- * Respects overall timeout budget from MCP_TIMEOUT
- */
 async function withRetry<T>(
   fn: () => Promise<T>,
   operationName: string,
@@ -145,7 +118,6 @@ async function withRetry<T>(
   const startTime = Date.now();
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
-    // Check if we've exceeded the total timeout budget
     const elapsed = Date.now() - startTime;
     if (elapsed >= config.totalBudgetMs) {
       debug(`${operationName}: timeout budget exhausted after ${elapsed}ms`);
@@ -181,9 +153,6 @@ async function withRetry<T>(
   throw lastError;
 }
 
-/**
- * Safely close a connection, logging but not throwing on error
- */
 export async function safeClose(close: () => Promise<void>): Promise<void> {
   try {
     await close();
@@ -221,14 +190,12 @@ export async function connectToServer(
     } else {
       transport = createStdioTransport(config);
 
-      // Capture stderr for debugging - attach BEFORE connect
-      // Always stream stderr immediately so auth prompts are visible
+      // NOTE(victor): attach stderr handler BEFORE connect so auth prompts are visible
       const stderrStream = transport.stderr;
       if (stderrStream) {
         stderrStream.on('data', (chunk: Buffer) => {
           const text = chunk.toString();
           stderrChunks.push(text);
-          // Always stream stderr immediately so users can see auth prompts
           process.stderr.write(`[${serverName}] ${text}`);
         });
       }
@@ -237,7 +204,6 @@ export async function connectToServer(
     try {
       await client.connect(transport);
     } catch (error) {
-      // Enhance error with captured stderr
       const stderrOutput = stderrChunks.join('').trim();
       if (stderrOutput) {
         const err = error as Error;
@@ -246,7 +212,6 @@ export async function connectToServer(
       throw error;
     }
 
-    // For successful connections, forward stderr to console
     if (!isHttpServer(config)) {
       const stderrStream = (transport as StdioClientTransport).stderr;
       if (stderrStream) {
@@ -265,9 +230,6 @@ export async function connectToServer(
   }, `connect to ${serverName}`);
 }
 
-/**
- * Create HTTP transport for remote servers
- */
 function createHttpTransport(
   config: HttpServerConfig,
 ): StreamableHTTPClientTransport {
@@ -280,12 +242,7 @@ function createHttpTransport(
   });
 }
 
-/**
- * Create stdio transport for local servers
- * Uses stderr: 'pipe' to capture server output for debugging
- */
 function createStdioTransport(config: StdioServerConfig): StdioClientTransport {
-  // Merge process.env with config.env, filtering out undefined values
   const mergedEnv: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined) {
@@ -305,9 +262,6 @@ function createStdioTransport(config: StdioServerConfig): StdioClientTransport {
   });
 }
 
-/**
- * List all tools from a connected client with retry logic
- */
 export async function listTools(client: Client): Promise<ToolInfo[]> {
   return withRetry(async () => {
     const result = await client.listTools();
@@ -319,9 +273,6 @@ export async function listTools(client: Client): Promise<ToolInfo[]> {
   }, 'list tools');
 }
 
-/**
- * Get a specific tool by name
- */
 export async function getTool(
   client: Client,
   toolName: string,
@@ -330,9 +281,6 @@ export async function getTool(
   return tools.find((t) => t.name === toolName);
 }
 
-/**
- * Call a tool with arguments and retry logic
- */
 export async function callTool(
   client: Client,
   toolName: string,
