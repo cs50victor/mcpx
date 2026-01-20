@@ -229,17 +229,38 @@ export function invalidJsonArgsError(
     type: 'INVALID_JSON_ARGUMENTS',
     message: 'Invalid JSON in tool arguments',
     details: parseError ? `Parse error: ${parseError}` : `Input: ${truncated}`,
-    suggestion:
-      'Arguments must be valid JSON. Use single quotes around JSON: \'{"key": "value"}\'',
+    suggestion: `Use valid JSON: '{"path": "./file.txt"}'. Run 'mcp-cli info <server> <tool>' for the schema.`,
   };
 }
 
 export function unknownOptionError(option: string): CliError {
+  // Provide context-aware suggestions for common mistakes
+  let suggestion: string;
+
+  const optionLower = option.toLowerCase().replace(/^-+/, '');
+
+  if (['server', 's'].includes(optionLower)) {
+    suggestion = `Server is a positional argument. Use 'mcp-cli info <server>'`;
+  } else if (['tool', 't'].includes(optionLower)) {
+    suggestion = `Tool is a positional argument. Use 'mcp-cli call <server> <tool>'`;
+  } else if (['args', 'arguments', 'a', 'input'].includes(optionLower)) {
+    suggestion = `Pass JSON directly: 'mcp-cli call <server> <tool> '{\"key\": \"value\"}''`;
+  } else if (['pattern', 'p', 'search', 'query'].includes(optionLower)) {
+    suggestion = `Use 'mcp-cli grep \"*pattern*\"'`;
+  } else if (['call', 'run', 'exec'].includes(optionLower)) {
+    suggestion = `Use 'call' as a subcommand, not option: 'mcp-cli call <server> <tool>'`;
+  } else if (['info', 'list', 'get'].includes(optionLower)) {
+    suggestion = `Use 'info' as a subcommand, not option: 'mcp-cli info <server>'`;
+  } else {
+    suggestion =
+      'Valid options: -c/--config, -j/--json, -d/--with-descriptions, -r/--raw';
+  }
+
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'UNKNOWN_OPTION',
     message: `Unknown option: ${option}`,
-    suggestion: "Run 'mcp-cli --help' to see available options",
+    suggestion,
   };
 }
 
@@ -247,10 +268,106 @@ export function missingArgumentError(
   command: string,
   argument: string,
 ): CliError {
+  // Provide command-specific format examples
+  let suggestion: string;
+
+  switch (command) {
+    case 'call':
+      if (argument.includes('server')) {
+        suggestion = `Use 'mcp-cli call <server> <tool> '{\"key\": \"value\"}''`;
+      } else {
+        suggestion = `Use 'mcp-cli call <server> <tool> '{\"key\": \"value\"}''`;
+      }
+      break;
+    case 'grep':
+      suggestion = `Use 'mcp-cli grep \"*pattern*\"'`;
+      break;
+    case '-c/--config':
+      suggestion = `Use 'mcp-cli -c /path/to/mcp_servers.json'`;
+      break;
+    default:
+      suggestion = `Run 'mcp-cli --help' for usage examples`;
+  }
+
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'MISSING_ARGUMENT',
     message: `Missing required argument for ${command}: ${argument}`,
-    suggestion: `Run 'mcp-cli --help' for usage examples`,
+    suggestion,
+  };
+}
+
+// ============================================================================
+// Subcommand Errors
+// ============================================================================
+
+/**
+ * Error when user provides ambiguous command like "mcp-cli server tool"
+ */
+export function ambiguousCommandError(
+  serverName: string,
+  toolName: string,
+  hasArgs?: boolean,
+): CliError {
+  const cmd = hasArgs
+    ? `mcp-cli call ${serverName} ${toolName} '<json>'`
+    : `mcp-cli call ${serverName} ${toolName}`;
+  return {
+    code: ErrorCode.CLIENT_ERROR,
+    type: 'AMBIGUOUS_COMMAND',
+    message: 'Ambiguous command: did you mean to call a tool or view info?',
+    details: `Received: mcp-cli ${serverName} ${toolName}${hasArgs ? ' ...' : ''}`,
+    suggestion: `Use '${cmd}' to execute, or 'mcp-cli info ${serverName} ${toolName}' to view schema`,
+  };
+}
+
+/**
+ * Error when user uses unknown subcommand with smart suggestions
+ */
+export function unknownSubcommandError(subcommand: string): CliError {
+  // Map common aliases to correct subcommands
+  const suggestions: Record<string, string> = {
+    run: 'call',
+    execute: 'call',
+    exec: 'call',
+    invoke: 'call',
+    list: 'info',
+    ls: 'info',
+    get: 'info',
+    show: 'info',
+    describe: 'info',
+    search: 'grep',
+    find: 'grep',
+    query: 'grep',
+  };
+
+  const suggested = suggestions[subcommand.toLowerCase()];
+  const validCommands = 'info, grep, call';
+
+  return {
+    code: ErrorCode.CLIENT_ERROR,
+    type: 'UNKNOWN_SUBCOMMAND',
+    message: `Unknown subcommand: "${subcommand}"`,
+    details: `Valid subcommands: ${validCommands}`,
+    suggestion: suggested
+      ? `Did you mean 'mcp-cli ${suggested}'?`
+      : `Use 'mcp-cli --help' to see available commands`,
+  };
+}
+
+/**
+ * Error when too many positional arguments provided
+ */
+export function tooManyArgumentsError(
+  command: string,
+  received: number,
+  max: number,
+): CliError {
+  return {
+    code: ErrorCode.CLIENT_ERROR,
+    type: 'TOO_MANY_ARGUMENTS',
+    message: `Too many arguments for ${command}`,
+    details: `Received ${received} arguments, maximum is ${max}`,
+    suggestion: `Run 'mcp-cli --help' for correct usage`,
   };
 }

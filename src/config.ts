@@ -68,6 +68,7 @@ export const DEFAULT_TIMEOUT_MS = DEFAULT_TIMEOUT_SECONDS * 1000;
 export const DEFAULT_CONCURRENCY = 5;
 export const DEFAULT_MAX_RETRIES = 3;
 export const DEFAULT_RETRY_DELAY_MS = 1000; // 1 second base delay
+export const DEFAULT_DAEMON_TIMEOUT_SECONDS = 60; // 60 seconds idle timeout
 
 /**
  * Debug logging utility - only logs when MCP_DEBUG is set
@@ -136,6 +137,70 @@ export function getRetryDelayMs(): number {
     }
   }
   return DEFAULT_RETRY_DELAY_MS;
+}
+
+// ============================================================================
+// Daemon Configuration
+// ============================================================================
+
+/**
+ * Check if daemon mode is enabled
+ * @env MCP_NO_DAEMON - set to "1" to disable daemon, force fresh connections
+ */
+export function isDaemonEnabled(): boolean {
+  return process.env.MCP_NO_DAEMON !== '1';
+}
+
+/**
+ * Get daemon idle timeout in milliseconds
+ * @env MCP_DAEMON_TIMEOUT - timeout in seconds (default: 60)
+ */
+export function getDaemonTimeoutMs(): number {
+  const envTimeout = process.env.MCP_DAEMON_TIMEOUT;
+  if (envTimeout) {
+    const seconds = Number.parseInt(envTimeout, 10);
+    if (!Number.isNaN(seconds) && seconds > 0) {
+      return seconds * 1000;
+    }
+  }
+  return DEFAULT_DAEMON_TIMEOUT_SECONDS * 1000;
+}
+
+/**
+ * Get the socket directory for daemon connections
+ * Uses platform-appropriate temp directory
+ */
+export function getSocketDir(): string {
+  const uid = process.getuid?.() ?? 'unknown';
+  // macOS uses /var/folders which is auto-cleaned, Linux uses /tmp
+  const base = process.platform === 'darwin' ? '/tmp' : '/tmp';
+  return join(base, `mcp-cli-${uid}`);
+}
+
+/**
+ * Get socket path for a specific server
+ */
+export function getSocketPath(serverName: string): string {
+  return join(getSocketDir(), `${serverName}.sock`);
+}
+
+/**
+ * Get PID file path for a specific server daemon
+ */
+export function getPidPath(serverName: string): string {
+  return join(getSocketDir(), `${serverName}.pid`);
+}
+
+/**
+ * Generate a hash of server config for stale detection
+ * Returns consistent hash for identical configs
+ */
+export function getConfigHash(config: ServerConfig): string {
+  const str = JSON.stringify(config, Object.keys(config).sort());
+  // Simple hash using Bun's native hashing
+  const hasher = new Bun.CryptoHasher('sha256');
+  hasher.update(str);
+  return hasher.digest('hex').slice(0, 16); // First 16 chars is enough
 }
 
 /**

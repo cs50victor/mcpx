@@ -55,8 +55,9 @@ describe('CLI Integration Tests', () => {
     const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
 
     try {
+      // Disable daemon for tests for deterministic behavior
       const result =
-        await $`bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
+        await $`MCP_NO_DAEMON=1 bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
       return {
         stdout: result.stdout.toString(),
         stderr: result.stderr.toString(),
@@ -112,15 +113,6 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout.length).toBeGreaterThan(100);
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed[0].name).toBe('filesystem');
-      expect(Array.isArray(parsed[0].tools)).toBe(true);
-    });
   });
 
   describe('grep command', () => {
@@ -138,16 +130,6 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('filesystem');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['grep', '*read*', '--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed.length).toBeGreaterThan(0);
-      expect(parsed[0].server).toBeDefined();
-      expect(parsed[0].tool).toBeDefined();
-    });
 
     test('shows message for no matches', async () => {
       const result = await runCli(['grep', '*nonexistent_xyz_123*']);
@@ -168,15 +150,6 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('Tools');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['filesystem', '--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.name).toBe('filesystem');
-      expect(parsed.tools).toBeDefined();
-      expect(Array.isArray(parsed.tools)).toBe(true);
-    });
 
     test('errors on unknown server', async () => {
       const result = await runCli(['nonexistent_server']);
@@ -198,14 +171,6 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('Input Schema:');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['filesystem/read_file', '--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.name).toBe('read_file');
-      expect(parsed.inputSchema).toBeDefined();
-    });
 
     test('errors on unknown tool', async () => {
       const result = await runCli(['filesystem/nonexistent_tool']);
@@ -237,18 +202,6 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('subdir');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli([
-        'filesystem/read_file',
-        JSON.stringify({ path: testFilePath }),
-        '--json',
-      ]);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.content).toBeDefined();
-      expect(Array.isArray(parsed.content)).toBe(true);
-    });
 
     test('handles tool errors gracefully', async () => {
       const result = await runCli([
@@ -337,8 +290,9 @@ describe('HTTP Transport Integration Tests', () => {
     const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
 
     try {
+      // Disable daemon for tests
       const result =
-        await $`bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
+        await $`MCP_NO_DAEMON=1 bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
       return {
         stdout: result.stdout.toString(),
         stderr: result.stderr.toString(),
@@ -361,15 +315,6 @@ describe('HTTP Transport Integration Tests', () => {
       expect(result.stdout).toContain('deepwiki');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed[0].name).toBe('deepwiki');
-      expect(Array.isArray(parsed[0].tools)).toBe(true);
-    });
   });
 
   describe('info command with HTTP server', () => {
@@ -383,15 +328,6 @@ describe('HTTP Transport Integration Tests', () => {
       expect(result.stdout).toContain('HTTP');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['deepwiki', '--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.name).toBe('deepwiki');
-      expect(parsed.config.url).toBe('https://mcp.deepwiki.com/mcp');
-      expect(parsed.tools).toBeDefined();
-    });
   });
 
   describe('grep command with HTTP server', () => {

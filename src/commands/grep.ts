@@ -4,10 +4,10 @@
 
 import {
   type ToolInfo,
-  connectToServer,
+  type McpConnection,
+  getConnection,
   debug,
   getConcurrencyLimit,
-  listTools,
   safeClose,
 } from '../client.js';
 import {
@@ -17,12 +17,11 @@ import {
   loadConfig,
 } from '../config.js';
 import { ErrorCode } from '../errors.js';
-import { formatJson, formatSearchResults } from '../output.js';
+import { formatSearchResults } from '../output.js';
 
 export interface GrepOptions {
   pattern: string;
   withDescriptions: boolean;
-  json: boolean;
   configPath?: string;
 }
 
@@ -112,43 +111,44 @@ async function processWithConcurrency<T, R>(
 }
 
 /**
- * Search tools in a single server
+ * Search tools in a single server (uses daemon if enabled)
  */
 async function searchServerTools(
   serverName: string,
   config: McpServersConfig,
   pattern: RegExp,
 ): Promise<ServerSearchResult> {
+  let connection: McpConnection | null = null;
   try {
     const serverConfig = getServerConfig(config, serverName);
-    const { client, close } = await connectToServer(serverName, serverConfig);
+    connection = await getConnection(serverName, serverConfig);
 
-    try {
-      const tools = await listTools(client);
-      const results: SearchResult[] = [];
+    const tools = await connection.listTools();
+    const results: SearchResult[] = [];
 
-      for (const tool of tools) {
-        // Match against tool name, server/tool path, or description
-        const fullPath = `${serverName}/${tool.name}`;
-        const matchesName = pattern.test(tool.name);
-        const matchesPath = pattern.test(fullPath);
-        const matchesDescription =
-          tool.description && pattern.test(tool.description);
+    for (const tool of tools) {
+      // Match against tool name, server/tool path, or description
+      const fullPath = `${serverName}/${tool.name}`;
+      const matchesName = pattern.test(tool.name);
+      const matchesPath = pattern.test(fullPath);
+      const matchesDescription =
+        tool.description && pattern.test(tool.description);
 
-        if (matchesName || matchesPath || matchesDescription) {
-          results.push({ server: serverName, tool });
-        }
+      if (matchesName || matchesPath || matchesDescription) {
+        results.push({ server: serverName, tool });
       }
-
-      debug(`${serverName}: found ${results.length} matches`);
-      return { serverName, results };
-    } finally {
-      await safeClose(close);
     }
+
+    debug(`${serverName}: found ${results.length} matches`);
+    return { serverName, results };
   } catch (error) {
     const errorMsg = (error as Error).message;
     debug(`${serverName}: connection failed - ${errorMsg}`);
     return { serverName, results: [], error: errorMsg };
+  } finally {
+    if (connection) {
+      await safeClose(connection.close);
+    }
   }
 }
 
@@ -210,15 +210,6 @@ export async function grepCommand(options: GrepOptions): Promise<void> {
     return;
   }
 
-  if (options.json) {
-    const jsonOutput = allResults.map((r) => ({
-      server: r.server,
-      tool: r.tool.name,
-      description: r.tool.description,
-      inputSchema: r.tool.inputSchema,
-    }));
-    console.log(formatJson(jsonOutput));
-  } else {
-    console.log(formatSearchResults(allResults, options.withDescriptions));
-  }
+  // Human-readable output
+  console.log(formatSearchResults(allResults, options.withDescriptions));
 }

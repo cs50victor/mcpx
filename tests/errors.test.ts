@@ -17,6 +17,9 @@ import {
   invalidJsonArgsError,
   unknownOptionError,
   missingArgumentError,
+  ambiguousCommandError,
+  unknownSubcommandError,
+  tooManyArgumentsError,
   ErrorCode,
 } from '../src/errors';
 
@@ -173,11 +176,21 @@ describe('errors', () => {
       expect(error.details).toContain('Unexpected token');
     });
 
-    test('unknownOptionError shows help suggestion', () => {
+    test('unknownOptionError shows valid options for unknown flag', () => {
       const error = unknownOptionError('--bad');
       expect(error.type).toBe('UNKNOWN_OPTION');
       expect(error.message).toContain('--bad');
-      expect(error.suggestion).toContain('--help');
+      expect(error.suggestion).toContain('-c/--config');
+    });
+
+    test('unknownOptionError shows context for --server', () => {
+      const error = unknownOptionError('--server');
+      expect(error.suggestion).toContain('positional argument');
+    });
+
+    test('unknownOptionError shows context for --args', () => {
+      const error = unknownOptionError('--args');
+      expect(error.suggestion).toContain('JSON directly');
     });
 
     test('missingArgumentError includes command and argument', () => {
@@ -194,6 +207,50 @@ describe('errors', () => {
       expect(ErrorCode.SERVER_ERROR).toBe(2);
       expect(ErrorCode.NETWORK_ERROR).toBe(3);
       expect(ErrorCode.AUTH_ERROR).toBe(4);
+    });
+  });
+
+  describe('subcommand errors', () => {
+    test('ambiguousCommandError shows both options', () => {
+      const error = ambiguousCommandError('server', 'tool');
+      expect(error.type).toBe('AMBIGUOUS_COMMAND');
+      expect(error.details).toContain('server tool');
+      expect(error.suggestion).toContain('call server tool');
+      expect(error.suggestion).toContain('info server tool');
+    });
+
+    test('ambiguousCommandError handles args case', () => {
+      const error = ambiguousCommandError('server', 'tool', true);
+      expect(error.details).toContain('...');
+      expect(error.suggestion).toContain('<json>');
+    });
+
+    test('unknownSubcommandError suggests call for run/execute', () => {
+      const error = unknownSubcommandError('run');
+      expect(error.type).toBe('UNKNOWN_SUBCOMMAND');
+      expect(error.suggestion).toContain('call');
+    });
+
+    test('unknownSubcommandError suggests info for list/get', () => {
+      const error = unknownSubcommandError('list');
+      expect(error.suggestion).toContain('info');
+    });
+
+    test('unknownSubcommandError suggests grep for search/find', () => {
+      const error = unknownSubcommandError('search');
+      expect(error.suggestion).toContain('grep');
+    });
+
+    test('unknownSubcommandError shows help for unknown alias', () => {
+      const error = unknownSubcommandError('unknown');
+      expect(error.suggestion).toContain('--help');
+    });
+
+    test('tooManyArgumentsError shows counts', () => {
+      const error = tooManyArgumentsError('grep', 5, 1);
+      expect(error.type).toBe('TOO_MANY_ARGUMENTS');
+      expect(error.details).toContain('5');
+      expect(error.details).toContain('1');
     });
   });
 });
