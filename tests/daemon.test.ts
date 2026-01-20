@@ -1,13 +1,10 @@
-/**
- * Unit tests for daemon module
- */
-
 import { describe, test, expect } from 'bun:test';
 import { getDaemonSpawnArgs } from '../src/daemon';
 
+// NOTE(victor): compiled binaries have virtual bunfs paths (/$bunfs/...),
+// dev mode has real filesystem paths - spawn args differ accordingly
 describe('getDaemonSpawnArgs', () => {
   test('should_return_direct_binary_args_when_compiled', () => {
-    // Compiled binaries have virtual bunfs paths
     const argv1 = '/$bunfs/root/mcpx';
     const execPath = '/opt/homebrew/bin/mcpx';
 
@@ -17,7 +14,6 @@ describe('getDaemonSpawnArgs', () => {
   });
 
   test('should_return_bun_run_args_when_dev_mode', () => {
-    // Dev mode has real filesystem paths
     const argv1 = '/home/runner/work/mcpx/src/index.ts';
     const execPath = '/usr/bin/bun';
 
@@ -41,3 +37,8 @@ describe('getDaemonSpawnArgs', () => {
     expect(result).toEqual(['/usr/local/bin/mcpx', 'daemon', 'start']);
   });
 });
+
+// NOTE(victor): daemon subprocess was failing with CONFIG_NOT_FOUND when started
+// from directories without mcp_servers.json. Fix: index.ts checks _MCPX_DAEMON
+// env var before loadConfig - subprocess receives server configs via IPC instead
+// Integration test: `cd /tmp && mcpx daemon start -c '{...}'` should succeed
