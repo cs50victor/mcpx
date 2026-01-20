@@ -687,6 +687,12 @@ export async function stopDaemon(
     const response = (await res.json()) as DaemonResponse;
     const disconnected = response.servers ?? [];
 
+    // NOTE(victor): wait for daemon to actually exit (shutdown is deferred 100ms)
+    for (let i = 0; i < 10; i++) {
+      await Bun.sleep(50);
+      if (!(await isDaemonRunning())) break;
+    }
+
     if (disconnected.length > 0) {
       console.log(
         `Daemon stopped (${disconnected.length} server(s) disconnected: ${disconnected.join(', ')})`,
