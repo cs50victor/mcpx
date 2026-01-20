@@ -289,6 +289,11 @@ async function main(): Promise<void> {
     case 'daemon':
       switch (args.daemonAction) {
         case 'start': {
+          // NOTE(victor): subprocess bypasses config - receives server configs via IPC
+          if (process.env._MCPX_DAEMON === '1') {
+            await startDaemon(undefined, undefined);
+            break;
+          }
           let config: McpServersConfig;
           try {
             config = await loadConfig(args.configPath);
