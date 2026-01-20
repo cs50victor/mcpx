@@ -424,8 +424,14 @@ process.on('SIGTERM', () => {
 });
 
 // Run
-main().catch((error) => {
-  // Error message already formatted by command handlers
-  console.error(error.message);
-  process.exit(ErrorCode.CLIENT_ERROR);
-});
+main()
+  .then(() => {
+    // Use setImmediate to let stdout flush before exiting
+    setImmediate(() => process.exit(0));
+  })
+  .catch((error) => {
+    // Error message already formatted by command handlers
+    console.error(error.message);
+    setImmediate(() => process.exit(ErrorCode.CLIENT_ERROR));
+  });
+
