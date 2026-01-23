@@ -120,7 +120,7 @@ export async function grepCommand(options: GrepOptions): Promise<void> {
 
   if (serverNames.length === 0) {
     console.error(
-      'Warning: No servers configured. Add servers to mcp_servers.json',
+      'Warning: No servers configured. Add servers to .mcp.json',
     );
     return;
   }
