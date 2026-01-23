@@ -2,8 +2,7 @@
  * Info command - Show server or tool details
  */
 
-import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { connectToServer, getTool, listTools, safeClose } from '../client.js';
+import { type McpConnection, getConnection, safeClose } from '../client.js';
 import {
   type McpServersConfig,
   type ServerConfig,
@@ -16,15 +15,10 @@ import {
   serverConnectionError,
   toolNotFoundError,
 } from '../errors.js';
-import {
-  formatJson,
-  formatServerDetails,
-  formatToolSchema,
-} from '../output.js';
+import { formatServerDetails, formatToolSchema } from '../output.js';
 
 export interface InfoOptions {
   target: string; // "server" or "server/tool"
-  json: boolean;
   withDescriptions: boolean;
   configPath?: string;
 }
@@ -63,13 +57,10 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
-  let client: Client;
-  let close: () => Promise<void> = async () => {};
+  let connection: McpConnection;
 
   try {
-    const connection = await connectToServer(serverName, serverConfig);
-    client = connection.client;
-    close = connection.close;
+    connection = await getConnection(serverName, serverConfig);
   } catch (error) {
     console.error(
       formatCliError(
@@ -82,7 +73,7 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
   try {
     if (toolName) {
       // Show specific tool schema
-      const tools = await listTools(client);
+      const tools = await connection.listTools();
       const tool = tools.find((t) => t.name === toolName);
 
       if (!tool) {
@@ -95,45 +86,25 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
         process.exit(ErrorCode.CLIENT_ERROR);
       }
 
-      if (options.json) {
-        console.log(
-          formatJson({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-          }),
-        );
-      } else {
-        console.log(formatToolSchema(serverName, tool));
-      }
+      // Human-readable output
+      console.log(formatToolSchema(serverName, tool));
     } else {
       // Show server details
-      const tools = await listTools(client);
+      const tools = await connection.listTools();
+      const instructions = await connection.getInstructions();
 
-      if (options.json) {
-        console.log(
-          formatJson({
-            name: serverName,
-            config: serverConfig,
-            tools: tools.map((t) => ({
-              name: t.name,
-              description: t.description,
-              inputSchema: t.inputSchema,
-            })),
-          }),
-        );
-      } else {
-        console.log(
-          formatServerDetails(
-            serverName,
-            serverConfig,
-            tools,
-            options.withDescriptions,
-          ),
-        );
-      }
+      // Human-readable output
+      console.log(
+        formatServerDetails(
+          serverName,
+          serverConfig,
+          tools,
+          options.withDescriptions,
+          instructions,
+        ),
+      );
     }
   } finally {
-    await safeClose(close);
+    await safeClose(connection.close);
   }
 }

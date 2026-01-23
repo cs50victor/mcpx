@@ -7,13 +7,11 @@
  * - Errors always go to stderr
  */
 
-import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
-  callTool,
-  connectToServer,
+  type McpConnection,
   debug,
+  getConnection,
   getTimeoutMs,
-  listTools,
   safeClose,
 } from '../client.js';
 import {
@@ -31,12 +29,11 @@ import {
   toolExecutionError,
   toolNotFoundError,
 } from '../errors.js';
-import { formatJson, formatToolResult } from '../output.js';
+import { formatJson } from '../output.js';
 
 export interface CallOptions {
   target: string; // "server/tool"
   args?: string; // JSON arguments
-  json: boolean;
   configPath?: string;
 }
 
@@ -148,13 +145,10 @@ export async function callCommand(options: CallOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
-  let client: Client;
-  let close: () => Promise<void> = async () => {}; // Initialize to noop to prevent undefined access
+  let connection: McpConnection;
 
   try {
-    const connection = await connectToServer(serverName, serverConfig);
-    client = connection.client;
-    close = connection.close;
+    connection = await getConnection(serverName, serverConfig);
   } catch (error) {
     console.error(
       formatCliError(
@@ -165,20 +159,15 @@ export async function callCommand(options: CallOptions): Promise<void> {
   }
 
   try {
-    const result = await callTool(client, toolName, args);
+    const result = await connection.callTool(toolName, args);
 
-    if (options.json) {
-      // Full JSON response
-      console.log(formatJson(result));
-    } else {
-      // Default: extract text content (raw output)
-      console.log(formatToolResult(result));
-    }
+    // Always output raw JSON for programmatic use
+    console.log(formatJson(result));
   } catch (error) {
     // Try to get available tools for better error message
     let availableTools: string[] | undefined;
     try {
-      const tools = await listTools(client);
+      const tools = await connection.listTools();
       availableTools = tools.map((t) => t.name);
     } catch {
       // Ignore - we'll show error without tool list
@@ -197,6 +186,6 @@ export async function callCommand(options: CallOptions): Promise<void> {
     }
     process.exit(ErrorCode.SERVER_ERROR);
   } finally {
-    await safeClose(close);
+    await safeClose(connection.close);
   }
 }

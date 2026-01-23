@@ -11,12 +11,20 @@ import {
   type ServerConfig,
   type StdioServerConfig,
   debug,
+  filterTools,
   getConcurrencyLimit,
   getMaxRetries,
   getRetryDelayMs,
   getTimeoutMs,
+  isDaemonEnabled,
   isHttpServer,
+  isToolAllowed,
 } from './config.js';
+import {
+  type DaemonConnection,
+  cleanupOrphanedDaemons,
+  getDaemonConnection,
+} from './daemon-client.js';
 import { VERSION } from './version.js';
 
 // Re-export config utilities for convenience
@@ -25,6 +33,20 @@ export { debug, getTimeoutMs, getConcurrencyLimit };
 export interface ConnectedClient {
   client: Client;
   close: () => Promise<void>;
+}
+
+/**
+ * Unified connection interface that works with both daemon and direct connections
+ */
+export interface McpConnection {
+  listTools: () => Promise<ToolInfo[]>;
+  callTool: (
+    toolName: string,
+    args: Record<string, unknown>,
+  ) => Promise<unknown>;
+  getInstructions: () => Promise<string | undefined>;
+  close: () => Promise<void>;
+  isDaemon: boolean;
 }
 
 export interface ServerInfo {
@@ -349,4 +371,96 @@ export async function callTool(
     );
     return result;
   }, `call tool ${toolName}`);
+}
+
+// ============================================================================
+// Unified Connection Interface (Daemon + Direct)
+// ============================================================================
+
+/**
+ * Get a unified connection to an MCP server
+ *
+ * If daemon mode is enabled (default), tries to use a cached daemon connection.
+ * Falls back to direct connection if daemon fails or is disabled.
+ *
+ * @param serverName - Name of the server from config
+ * @param config - Server configuration
+ * @returns McpConnection with listTools, callTool, and close methods
+ */
+export async function getConnection(
+  serverName: string,
+  config: ServerConfig,
+): Promise<McpConnection> {
+  // Clean up any orphaned daemons on first call
+  await cleanupOrphanedDaemons();
+
+  // Try daemon connection if enabled
+  if (isDaemonEnabled()) {
+    try {
+      const daemonConn = await getDaemonConnection(serverName, config);
+      if (daemonConn) {
+        debug(`Using daemon connection for ${serverName}`);
+        return {
+          async listTools(): Promise<ToolInfo[]> {
+            const data = await daemonConn.listTools();
+            const tools = data as ToolInfo[];
+            // Apply tool filtering from config
+            return filterTools(tools, config);
+          },
+          async callTool(
+            toolName: string,
+            args: Record<string, unknown>,
+          ): Promise<unknown> {
+            // Check if tool is allowed before calling
+            if (!isToolAllowed(toolName, config)) {
+              throw new Error(
+                `Tool "${toolName}" is disabled by configuration`,
+              );
+            }
+            return daemonConn.callTool(toolName, args);
+          },
+          async getInstructions(): Promise<string | undefined> {
+            return daemonConn.getInstructions();
+          },
+          async close(): Promise<void> {
+            await daemonConn.close();
+          },
+          isDaemon: true,
+        };
+      }
+    } catch (err) {
+      debug(
+        `Daemon connection failed for ${serverName}: ${(err as Error).message}, falling back to direct`,
+      );
+    }
+  }
+
+  // Fall back to direct connection
+  debug(`Using direct connection for ${serverName}`);
+  const { client, close } = await connectToServer(serverName, config);
+
+  return {
+    async listTools(): Promise<ToolInfo[]> {
+      const tools = await listTools(client);
+      // Apply tool filtering from config
+      return filterTools(tools, config);
+    },
+    async callTool(
+      toolName: string,
+      args: Record<string, unknown>,
+    ): Promise<unknown> {
+      // Check if tool is allowed before calling
+      if (!isToolAllowed(toolName, config)) {
+        throw new Error(`Tool "${toolName}" is disabled by configuration`);
+      }
+      return callTool(client, toolName, args);
+    },
+    async getInstructions(): Promise<string | undefined> {
+      return client.getInstructions();
+    },
+    async close(): Promise<void> {
+      await close();
+    },
+    isDaemon: false,
+  };
 }

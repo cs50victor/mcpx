@@ -30,6 +30,7 @@ describe('CLI Integration Tests', () => {
     await writeFile(join(subDir, 'nested.txt'), 'Nested content');
 
     // Create config pointing to the temp directory
+    // Note: npm_config_registry override ensures npx uses public npm registry
     configPath = join(tempDir, 'mcp_servers.json');
     await writeFile(
       configPath,
@@ -38,6 +39,9 @@ describe('CLI Integration Tests', () => {
           filesystem: {
             command: 'npx',
             args: ['-y', '@modelcontextprotocol/server-filesystem', tempDir],
+            env: {
+              npm_config_registry: 'https://registry.npmjs.org',
+            },
           },
         },
       })
@@ -55,8 +59,9 @@ describe('CLI Integration Tests', () => {
     const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
 
     try {
+      // Disable daemon for tests for deterministic behavior
       const result =
-        await $`bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
+        await $`MCP_NO_DAEMON=1 bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
       return {
         stdout: result.stdout.toString(),
         stderr: result.stderr.toString(),
@@ -112,15 +117,6 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout.length).toBeGreaterThan(100);
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed[0].name).toBe('filesystem');
-      expect(Array.isArray(parsed[0].tools)).toBe(true);
-    });
   });
 
   describe('grep command', () => {
@@ -128,7 +124,8 @@ describe('CLI Integration Tests', () => {
       const result = await runCli(['grep', '*file*']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toMatch(/filesystem\/(read_file|write_file)/);
+      // Should find file-related tools (space-separated format: server tool)
+      expect(result.stdout).toContain('read_file ');
     });
 
     test('searches with descriptions', async () => {
@@ -138,28 +135,19 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('filesystem');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['grep', '*read*', '--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed.length).toBeGreaterThan(0);
-      expect(parsed[0].server).toBeDefined();
-      expect(parsed[0].tool).toBeDefined();
-    });
 
     test('shows message for no matches', async () => {
       const result = await runCli(['grep', '*nonexistent_xyz_123*']);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('No tools found');
+      expect(result.stdout).toContain('Tip:');
     });
   });
 
   describe('info command (server)', () => {
     test('shows server details', async () => {
-      const result = await runCli(['filesystem']);
+      const result = await runCli(['info', 'filesystem']);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Server:');
@@ -168,18 +156,9 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('Tools');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['filesystem', '--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.name).toBe('filesystem');
-      expect(parsed.tools).toBeDefined();
-      expect(Array.isArray(parsed.tools)).toBe(true);
-    });
 
     test('errors on unknown server', async () => {
-      const result = await runCli(['nonexistent_server']);
+      const result = await runCli(['info', 'nonexistent_server']);
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('not found');
@@ -188,7 +167,7 @@ describe('CLI Integration Tests', () => {
 
   describe('info command (tool)', () => {
     test('shows tool schema', async () => {
-      const result = await runCli(['filesystem/read_file']);
+      const result = await runCli(['info', 'filesystem', 'read_file']);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Tool:');
@@ -198,17 +177,9 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('Input Schema:');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['filesystem/read_file', '--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.name).toBe('read_file');
-      expect(parsed.inputSchema).toBeDefined();
-    });
 
     test('errors on unknown tool', async () => {
-      const result = await runCli(['filesystem/nonexistent_tool']);
+      const result = await runCli(['info', 'filesystem', 'nonexistent_tool']);
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('not found');
@@ -218,7 +189,9 @@ describe('CLI Integration Tests', () => {
   describe('call command', () => {
     test('calls read_file tool', async () => {
       const result = await runCli([
-        'filesystem/read_file',
+        'call',
+        'filesystem',
+        'read_file',
         JSON.stringify({ path: testFilePath }),
       ]);
 
@@ -228,7 +201,9 @@ describe('CLI Integration Tests', () => {
 
     test('calls list_directory tool', async () => {
       const result = await runCli([
-        'filesystem/list_directory',
+        'call',
+        'filesystem',
+        'list_directory',
         JSON.stringify({ path: tempDir }),
       ]);
 
@@ -237,22 +212,12 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('subdir');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli([
-        'filesystem/read_file',
-        JSON.stringify({ path: testFilePath }),
-        '--json',
-      ]);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.content).toBeDefined();
-      expect(Array.isArray(parsed.content)).toBe(true);
-    });
 
     test('handles tool errors gracefully', async () => {
       const result = await runCli([
-        'filesystem/read_file',
+        'call',
+        'filesystem',
+        'read_file',
         JSON.stringify({ path: '/nonexistent/path/file.txt' }),
       ]);
 
@@ -262,7 +227,7 @@ describe('CLI Integration Tests', () => {
     });
 
     test('handles invalid JSON arguments', async () => {
-      const result = await runCli(['filesystem/read_file', 'not valid json']);
+      const result = await runCli(['call', 'filesystem', 'read_file', 'not valid json']);
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('Invalid JSON');
@@ -270,7 +235,7 @@ describe('CLI Integration Tests', () => {
 
     test('calls tool with no arguments', async () => {
       // list_directory might work with default path
-      const result = await runCli(['filesystem/list_directory', '{}']);
+      const result = await runCli(['call', 'filesystem', 'list_directory', '{}']);
 
       // May succeed or fail depending on server implementation
       // We just verify it doesn't crash
@@ -337,8 +302,9 @@ describe('HTTP Transport Integration Tests', () => {
     const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
 
     try {
+      // Disable daemon for tests
       const result =
-        await $`bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
+        await $`MCP_NO_DAEMON=1 bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
       return {
         stdout: result.stdout.toString(),
         stderr: result.stderr.toString(),
@@ -361,20 +327,11 @@ describe('HTTP Transport Integration Tests', () => {
       expect(result.stdout).toContain('deepwiki');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed[0].name).toBe('deepwiki');
-      expect(Array.isArray(parsed[0].tools)).toBe(true);
-    });
   });
 
   describe('info command with HTTP server', () => {
     test('shows HTTP server details', async () => {
-      const result = await runCli(['deepwiki']);
+      const result = await runCli(['info', 'deepwiki']);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Server:');
@@ -383,15 +340,6 @@ describe('HTTP Transport Integration Tests', () => {
       expect(result.stdout).toContain('HTTP');
     });
 
-    test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['deepwiki', '--json']);
-
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.name).toBe('deepwiki');
-      expect(parsed.config.url).toBe('https://mcp.deepwiki.com/mcp');
-      expect(parsed.tools).toBeDefined();
-    });
   });
 
   describe('grep command with HTTP server', () => {

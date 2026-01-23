@@ -3,11 +3,11 @@
  */
 
 import {
+  type McpConnection,
   type ToolInfo,
-  connectToServer,
   debug,
   getConcurrencyLimit,
-  listTools,
+  getConnection,
   safeClose,
 } from '../client.js';
 import {
@@ -17,17 +17,17 @@ import {
   loadConfig,
 } from '../config.js';
 import { ErrorCode } from '../errors.js';
-import { formatJson, formatServerList } from '../output.js';
+import { formatServerList } from '../output.js';
 
 export interface ListOptions {
   withDescriptions: boolean;
-  json: boolean;
   configPath?: string;
 }
 
 interface ServerWithTools {
   name: string;
   tools: ToolInfo[];
+  instructions?: string;
   error?: string;
 }
 
@@ -61,23 +61,21 @@ async function processWithConcurrency<T, R>(
 }
 
 /**
- * Fetch tools from a single server
+ * Fetch tools from a single server (uses daemon if enabled)
  */
 async function fetchServerTools(
   serverName: string,
   config: McpServersConfig,
 ): Promise<ServerWithTools> {
+  let connection: McpConnection | null = null;
   try {
     const serverConfig = getServerConfig(config, serverName);
-    const { client, close } = await connectToServer(serverName, serverConfig);
+    connection = await getConnection(serverName, serverConfig);
 
-    try {
-      const tools = await listTools(client);
-      debug(`${serverName}: loaded ${tools.length} tools`);
-      return { name: serverName, tools };
-    } finally {
-      await safeClose(close);
-    }
+    const tools = await connection.listTools();
+    const instructions = await connection.getInstructions();
+    debug(`${serverName}: loaded ${tools.length} tools`);
+    return { name: serverName, tools, instructions };
   } catch (error) {
     const errorMsg = (error as Error).message;
     debug(`${serverName}: connection failed - ${errorMsg}`);
@@ -86,6 +84,10 @@ async function fetchServerTools(
       tools: [],
       error: errorMsg,
     };
+  } finally {
+    if (connection) {
+      await safeClose(connection.close);
+    }
   }
 }
 
@@ -129,6 +131,7 @@ export async function listCommand(options: ListOptions): Promise<void> {
   // Convert errors to tool-like display for human output
   const displayServers = servers.map((s) => ({
     name: s.name,
+    instructions: s.instructions,
     tools: s.error
       ? [
           {
@@ -140,18 +143,6 @@ export async function listCommand(options: ListOptions): Promise<void> {
       : s.tools,
   }));
 
-  if (options.json) {
-    const jsonOutput = servers.map((s) => ({
-      name: s.name,
-      tools: s.tools.map((t) => ({
-        name: t.name,
-        description: t.description,
-        inputSchema: t.inputSchema,
-      })),
-      error: s.error,
-    }));
-    console.log(formatJson(jsonOutput));
-  } else {
-    console.log(formatServerList(displayServers, options.withDescriptions));
-  }
+  // Human-readable output
+  console.log(formatServerList(displayServers, options.withDescriptions));
 }
