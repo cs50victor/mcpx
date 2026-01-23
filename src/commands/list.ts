@@ -10,6 +10,7 @@ import {
   type McpServersConfig,
   findDisabledMatch,
   getServerConfig,
+  isToolAllowedByServerConfig,
   listServerNames,
   loadConfig,
   loadDisabledTools,
@@ -27,6 +28,8 @@ interface ServerWithTools {
   name: string;
   tools: ToolInfo[];
   error?: string;
+  serverConfig?: import('../config.js').ServerConfig;
+  instructions?: string;
 }
 
 /**
@@ -63,12 +66,15 @@ async function fetchServerTools(
 ): Promise<ServerWithTools> {
   try {
     const serverConfig = getServerConfig(config, serverName);
-    const { client, close } = await connectToServer(serverName, serverConfig);
+    const { client, close, instructions } = await connectToServer(
+      serverName,
+      serverConfig,
+    );
 
     try {
       const tools = await listTools(client);
       debug(`${serverName}: loaded ${tools.length} tools`);
-      return { name: serverName, tools };
+      return { name: serverName, tools, serverConfig, instructions };
     } finally {
       await safeClose(close);
     }
@@ -117,9 +123,15 @@ export async function listCommand(options: ListOptions): Promise<void> {
 
   const disabledPatterns = await loadDisabledTools();
   for (const server of servers) {
-    server.tools = server.tools.filter(
-      (t) => !findDisabledMatch(`${server.name}/${t.name}`, disabledPatterns),
-    );
+    server.tools = server.tools.filter((t) => {
+      if (!findDisabledMatch(`${server.name}/${t.name}`, disabledPatterns)) {
+        if (server.serverConfig) {
+          return isToolAllowedByServerConfig(t.name, server.serverConfig);
+        }
+        return true;
+      }
+      return false;
+    });
   }
 
   const displayServers = servers.map((s) => ({
@@ -133,6 +145,7 @@ export async function listCommand(options: ListOptions): Promise<void> {
           },
         ]
       : s.tools,
+    instructions: s.instructions,
   }));
 
   if (options.json) {
@@ -144,6 +157,7 @@ export async function listCommand(options: ListOptions): Promise<void> {
         inputSchema: t.inputSchema,
       })),
       error: s.error,
+      instructions: s.instructions,
     }));
     console.log(formatJson(jsonOutput));
   } else {

@@ -10,6 +10,7 @@ import {
   type McpServersConfig,
   findDisabledMatch,
   getServerConfig,
+  isToolAllowedByServerConfig,
   listServerNames,
   loadConfig,
   loadDisabledTools,
@@ -77,6 +78,10 @@ async function searchServerTools(
       const results: SearchResult[] = [];
 
       for (const tool of tools) {
+        if (!isToolAllowedByServerConfig(tool.name, serverConfig)) {
+          continue;
+        }
+
         const fullPath = `${serverName}/${tool.name}`;
         const matchesName = pattern.test(tool.name);
         const matchesPath = pattern.test(fullPath);

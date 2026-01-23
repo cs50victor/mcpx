@@ -14,6 +14,8 @@ import {
   isStdioServer,
   loadDisabledTools,
   findDisabledMatch,
+  isToolAllowedByServerConfig,
+  computeConfigHash,
 } from '../src/config';
 
 describe('config', () => {
@@ -56,11 +58,11 @@ describe('config', () => {
       await expect(loadConfig(configPath)).rejects.toThrow('Invalid JSON');
     });
 
-    test('throws on missing mcpServers key', async () => {
-      const configPath = join(tempDir, 'bad_structure.json');
+    test('treats non-mcpServers top-level keys as flat format servers', async () => {
+      const configPath = join(tempDir, 'flat_config.json');
       await writeFile(configPath, JSON.stringify({ servers: {} }));
 
-      await expect(loadConfig(configPath)).rejects.toThrow('mcpServers');
+      await expect(loadConfig(configPath)).rejects.toThrow('missing required field');
     });
 
     test('substitutes environment variables', async () => {
@@ -297,14 +299,306 @@ describe('config', () => {
       await expect(loadConfig(badJson)).rejects.toThrow('Invalid JSON');
     });
 
-    test('loadConfig throws on inline JSON missing mcpServers', async () => {
+    test('loadConfig inline JSON treats unknown keys as flat format servers', async () => {
       const noServers = '{"servers":{}}';
-      await expect(loadConfig(noServers)).rejects.toThrow('mcpServers');
+      await expect(loadConfig(noServers)).rejects.toThrow('missing required field');
     });
 
     test('loadConfig validates inline server configs', async () => {
       const badServer = '{"mcpServers":{"test":{}}}';
       await expect(loadConfig(badServer)).rejects.toThrow('missing required field');
+    });
+  });
+
+  describe('flat config format (Claude Code / Amp Code style)', () => {
+    test('loadConfig parses flat format without mcpServers wrapper', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          test: { command: 'echo', args: ['hello'] },
+          http: { url: 'https://example.com' },
+        })
+      );
+
+      const config = await loadConfig(configPath);
+      expect(config.mcpServers.test).toBeDefined();
+      expect((config.mcpServers.test as any).command).toBe('echo');
+      expect((config.mcpServers.http as any).url).toBe('https://example.com');
+    });
+
+    test('loadConfig parses wrapped format with mcpServers key', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          mcpServers: {
+            test: { command: 'echo' },
+          },
+        })
+      );
+
+      const config = await loadConfig(configPath);
+      expect(config.mcpServers.test).toBeDefined();
+      expect((config.mcpServers.test as any).command).toBe('echo');
+    });
+
+    test('loadConfig inline flat format works', async () => {
+      const inlineConfig = '{"test":{"command":"echo"},"other":{"url":"http://localhost"}}';
+      const config = await loadConfig(inlineConfig);
+      expect(config.mcpServers.test).toBeDefined();
+      expect(config.mcpServers.other).toBeDefined();
+    });
+
+    test('flat format validates server configs', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          badserver: {},
+        })
+      );
+
+      await expect(loadConfig(configPath)).rejects.toThrow('missing required field');
+    });
+
+    test('flat format with both command and url throws error', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          mixed: { command: 'echo', url: 'https://example.com' },
+        })
+      );
+
+      await expect(loadConfig(configPath)).rejects.toThrow('both "command" and "url"');
+    });
+  });
+
+  describe('config file search order', () => {
+    test('prefers .mcp.json over mcp.json in same directory', async () => {
+      const mcpJsonPath = join(tempDir, '.mcp.json');
+      const altPath = join(tempDir, 'mcp.json');
+
+      await writeFile(mcpJsonPath, JSON.stringify({ primary: { command: 'echo' } }));
+      await writeFile(altPath, JSON.stringify({ secondary: { command: 'echo' } }));
+
+      const originalCwd = process.cwd();
+      process.chdir(tempDir);
+      try {
+        const config = await loadConfig();
+        expect(config.mcpServers.primary).toBeDefined();
+        expect(config.mcpServers.secondary).toBeUndefined();
+      } finally {
+        process.chdir(originalCwd);
+      }
+    });
+  });
+
+  describe('legacy filename rejection', () => {
+    test('throws error when mcp_servers.json found with rename suggestion', async () => {
+      const legacyPath = join(tempDir, 'mcp_servers.json');
+      await writeFile(
+        legacyPath,
+        JSON.stringify({ mcpServers: { test: { command: 'echo' } } })
+      );
+
+      const originalCwd = process.cwd();
+      process.chdir(tempDir);
+      try {
+        await expect(loadConfig()).rejects.toThrow('no longer supported');
+      } finally {
+        process.chdir(originalCwd);
+      }
+    });
+
+    test('legacy filename error includes rename command', async () => {
+      const legacyPath = join(tempDir, 'mcp_servers.json');
+      await writeFile(legacyPath, JSON.stringify({ mcpServers: { test: { command: 'echo' } } }));
+
+      const originalCwd = process.cwd();
+      process.chdir(tempDir);
+      try {
+        await expect(loadConfig()).rejects.toThrow('mv mcp_servers.json .mcp.json');
+      } finally {
+        process.chdir(originalCwd);
+      }
+    });
+  });
+
+  describe('empty config warning', () => {
+    test('warns but does not error on empty servers in flat format', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(configPath, '{}');
+
+      const config = await loadConfig(configPath);
+      expect(Object.keys(config.mcpServers).length).toBe(0);
+    });
+  });
+
+  describe('per-server tool filtering', () => {
+    test('parses includeTools array', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          test: {
+            command: 'echo',
+            includeTools: ['read_*', 'list_*'],
+          },
+        })
+      );
+
+      const config = await loadConfig(configPath);
+      const server = config.mcpServers.test as any;
+      expect(server.includeTools).toEqual(['read_*', 'list_*']);
+    });
+
+    test('parses allowedTools array (alias for includeTools)', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          test: {
+            command: 'echo',
+            allowedTools: ['read_*'],
+          },
+        })
+      );
+
+      const config = await loadConfig(configPath);
+      const server = config.mcpServers.test as any;
+      expect(server.allowedTools).toEqual(['read_*']);
+    });
+
+    test('parses disabledTools array', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          test: {
+            command: 'echo',
+            disabledTools: ['delete_*', 'write_*'],
+          },
+        })
+      );
+
+      const config = await loadConfig(configPath);
+      const server = config.mcpServers.test as any;
+      expect(server.disabledTools).toEqual(['delete_*', 'write_*']);
+    });
+
+    test('throws error when both includeTools and allowedTools are present', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          test: {
+            command: 'echo',
+            includeTools: ['read_*'],
+            allowedTools: ['write_*'],
+          },
+        })
+      );
+
+      await expect(loadConfig(configPath)).rejects.toThrow(
+        'both "includeTools" and "allowedTools"'
+      );
+    });
+
+    test('allows includeTools with disabledTools together', async () => {
+      const configPath = join(tempDir, '.mcp.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          test: {
+            command: 'echo',
+            includeTools: ['*'],
+            disabledTools: ['delete_*'],
+          },
+        })
+      );
+
+      const config = await loadConfig(configPath);
+      const server = config.mcpServers.test as any;
+      expect(server.includeTools).toEqual(['*']);
+      expect(server.disabledTools).toEqual(['delete_*']);
+    });
+  });
+
+  describe('isToolAllowedByServerConfig', () => {
+    test('allows all tools when no filters specified', () => {
+      const serverConfig = { command: 'echo' };
+      expect(isToolAllowedByServerConfig('any_tool', serverConfig)).toBe(true);
+    });
+
+    test('filters by includeTools patterns', () => {
+      const serverConfig = { command: 'echo', includeTools: ['read_*', 'list_*'] };
+      expect(isToolAllowedByServerConfig('read_file', serverConfig)).toBe(true);
+      expect(isToolAllowedByServerConfig('list_dir', serverConfig)).toBe(true);
+      expect(isToolAllowedByServerConfig('write_file', serverConfig)).toBe(false);
+      expect(isToolAllowedByServerConfig('delete_file', serverConfig)).toBe(false);
+    });
+
+    test('filters by allowedTools patterns (alias)', () => {
+      const serverConfig = { command: 'echo', allowedTools: ['read_*'] };
+      expect(isToolAllowedByServerConfig('read_file', serverConfig)).toBe(true);
+      expect(isToolAllowedByServerConfig('write_file', serverConfig)).toBe(false);
+    });
+
+    test('filters by disabledTools patterns', () => {
+      const serverConfig = { command: 'echo', disabledTools: ['delete_*', 'write_*'] };
+      expect(isToolAllowedByServerConfig('read_file', serverConfig)).toBe(true);
+      expect(isToolAllowedByServerConfig('delete_file', serverConfig)).toBe(false);
+      expect(isToolAllowedByServerConfig('write_file', serverConfig)).toBe(false);
+    });
+
+    test('disabledTools takes precedence over includeTools', () => {
+      const serverConfig = {
+        command: 'echo',
+        includeTools: ['*'],
+        disabledTools: ['dangerous_*'],
+      };
+      expect(isToolAllowedByServerConfig('safe_tool', serverConfig)).toBe(true);
+      expect(isToolAllowedByServerConfig('dangerous_delete', serverConfig)).toBe(false);
+    });
+
+    test('wildcard * matches any tool', () => {
+      const serverConfig = { command: 'echo', includeTools: ['*'] };
+      expect(isToolAllowedByServerConfig('anything', serverConfig)).toBe(true);
+      expect(isToolAllowedByServerConfig('read_file', serverConfig)).toBe(true);
+    });
+  });
+
+  describe('computeConfigHash', () => {
+    test('returns consistent hash for same config', () => {
+      const config = { command: 'echo', args: ['test'] };
+      const hash1 = computeConfigHash(config);
+      const hash2 = computeConfigHash(config);
+      expect(hash1).toBe(hash2);
+    });
+
+    test('returns different hash for different config', () => {
+      const config1 = { command: 'echo', args: ['test'] };
+      const config2 = { command: 'echo', args: ['other'] };
+      const hash1 = computeConfigHash(config1);
+      const hash2 = computeConfigHash(config2);
+      expect(hash1).not.toBe(hash2);
+    });
+
+    test('hash is order-independent for object keys', () => {
+      const config1 = { command: 'echo', args: ['test'] };
+      const config2 = { args: ['test'], command: 'echo' };
+      const hash1 = computeConfigHash(config1);
+      const hash2 = computeConfigHash(config2);
+      expect(hash1).toBe(hash2);
+    });
+
+    test('returns string hash', () => {
+      const config = { command: 'echo' };
+      const hash = computeConfigHash(config);
+      expect(typeof hash).toBe('string');
+      expect(hash.length).toBeGreaterThan(0);
     });
   });
 });

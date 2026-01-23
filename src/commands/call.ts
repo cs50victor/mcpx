@@ -12,6 +12,7 @@ import {
   type ServerConfig,
   findDisabledMatch,
   getServerConfig,
+  isToolAllowedByServerConfig,
   loadConfig,
   loadDisabledTools,
 } from '../config.js';
@@ -140,6 +141,19 @@ export async function callCommand(options: CallOptions): Promise<void> {
     serverConfig = getServerConfig(config, serverName);
   } catch (error) {
     console.error((error as Error).message);
+    process.exit(ErrorCode.CLIENT_ERROR);
+  }
+
+  if (!isToolAllowedByServerConfig(toolName, serverConfig)) {
+    console.error(
+      formatCliError(
+        toolDisabledError(
+          `${serverName}/${toolName}`,
+          'server config filter',
+          'includeTools/disabledTools',
+        ),
+      ),
+    );
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 

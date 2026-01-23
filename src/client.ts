@@ -21,6 +21,7 @@ export { debug, getTimeoutMs, getConcurrencyLimit };
 export interface ConnectedClient {
   client: Client;
   close: () => Promise<void>;
+  instructions?: string;
 }
 
 export interface ServerInfo {
@@ -226,6 +227,7 @@ export async function connectToServer(
       close: async () => {
         await client.close();
       },
+      instructions: client.getInstructions(),
     };
   }, `connect to ${serverName}`);
 }

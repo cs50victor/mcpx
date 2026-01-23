@@ -26,6 +26,7 @@ import { type ConnectedClient, connectToServer, safeClose } from './client.js';
 import {
   type McpServersConfig,
   type ServerConfig,
+  computeConfigHash,
   debug,
   isHttpServer,
 } from './config.js';
@@ -54,6 +55,7 @@ interface PoolEntry {
   connection: ConnectedClient;
   config: ServerConfig;
   configSource: string;
+  configHash: string;
   lastUsed: number;
   startedAt: number;
 }
@@ -77,12 +79,30 @@ class ConnectionPool {
     serverName: string,
     config: ServerConfig,
     configSource: string,
-  ): Promise<{ connection: ConnectedClient; alreadyConnected: boolean }> {
+  ): Promise<{
+    connection: ConnectedClient;
+    alreadyConnected: boolean;
+    reconnected: boolean;
+  }> {
+    const newHash = computeConfigHash(config);
     const existing = this.pool.get(serverName);
+
     if (existing) {
-      existing.lastUsed = Date.now();
-      debug(`daemon: reusing connection for ${serverName}`);
-      return { connection: existing.connection, alreadyConnected: true };
+      if (existing.configHash !== newHash) {
+        debug(
+          `daemon: config changed for ${serverName}, reconnecting (${existing.configHash} -> ${newHash})`,
+        );
+        await safeClose(existing.connection.close);
+        this.pool.delete(serverName);
+      } else {
+        existing.lastUsed = Date.now();
+        debug(`daemon: reusing connection for ${serverName}`);
+        return {
+          connection: existing.connection,
+          alreadyConnected: true,
+          reconnected: false,
+        };
+      }
     }
 
     debug(`daemon: creating new connection for ${serverName}`);
@@ -91,10 +111,15 @@ class ConnectionPool {
       connection,
       config,
       configSource,
+      configHash: newHash,
       lastUsed: Date.now(),
       startedAt: Date.now(),
     });
-    return { connection, alreadyConnected: false };
+    return {
+      connection,
+      alreadyConnected: false,
+      reconnected: existing !== undefined,
+    };
   }
 
   has(serverName: string): boolean {
