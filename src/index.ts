@@ -165,7 +165,7 @@ function parseArgs(args: string[]): ParsedArgs {
 function printHelp(): void {
   const socketPath = getDaemonSocketPath();
   console.log(`
-mcpx v${VERSION} - A lightweight CLI for MCP servers
+mcpx v${VERSION} - Dynamic MCP tool discovery and invocation for AI agents
 
 Usage:
   mcpx                                     Show this help message

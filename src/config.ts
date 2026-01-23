@@ -203,11 +203,14 @@ export function legacyConfigError(legacyPath: string): CliError {
     type: 'CONFIG_LEGACY_FILENAME',
     message: `"mcp_servers.json" filename is no longer supported (deprecated in v0.2.0)`,
     details: `Found: ${legacyPath}`,
-    suggestion: `Rename your config file:\n  mv mcp_servers.json .mcp.json\n\nSupported filenames: .mcp.json, mcp.json\nSee: https://github.com/cs50victor/mcpx#config-format`,
+    suggestion:
+      'Rename your config file:\n  mv mcp_servers.json .mcp.json\n\nSupported filenames: .mcp.json, mcp.json\nSee: https://github.com/cs50victor/mcpx#config-format',
   };
 }
 
-function isWrappedFormat(config: unknown): config is { mcpServers: Record<string, unknown> } {
+function isWrappedFormat(
+  config: unknown,
+): config is { mcpServers: Record<string, unknown> } {
   return (
     typeof config === 'object' &&
     config !== null &&
@@ -222,7 +225,9 @@ function isFlatServerConfig(value: unknown): boolean {
   return 'command' in value || 'url' in value;
 }
 
-function normalizeConfig(rawConfig: unknown): { mcpServers: Record<string, ServerConfig> } {
+function normalizeConfig(rawConfig: unknown): {
+  mcpServers: Record<string, ServerConfig>;
+} {
   if (isWrappedFormat(rawConfig)) {
     return { mcpServers: rawConfig.mcpServers as Record<string, ServerConfig> };
   }
@@ -230,7 +235,10 @@ function normalizeConfig(rawConfig: unknown): { mcpServers: Record<string, Serve
   if (typeof rawConfig === 'object' && rawConfig !== null) {
     const servers: Record<string, ServerConfig> = {};
     for (const [key, value] of Object.entries(rawConfig)) {
-      if (isFlatServerConfig(value) || (typeof value === 'object' && value !== null)) {
+      if (
+        isFlatServerConfig(value) ||
+        (typeof value === 'object' && value !== null)
+      ) {
         servers[key] = value as ServerConfig;
       }
     }
@@ -417,8 +425,7 @@ export async function loadConfig(
           code: ErrorCode.CLIENT_ERROR,
           type: 'CONFIG_INVALID_SERVER',
           message: `Server "${serverName}" has both "includeTools" and "allowedTools"`,
-          details:
-            'These fields are aliases - use one or the other, not both',
+          details: 'These fields are aliases - use one or the other, not both',
           suggestion: `Remove one field. Both accept glob patterns:\n  "includeTools": ["read_*", "write_*"]   # Amp Code convention\n  "allowedTools": ["read_*", "write_*"]   # Alternative naming`,
         }),
       );
