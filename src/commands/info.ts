@@ -5,6 +5,7 @@ import {
   type ServerConfig,
   findDisabledMatch,
   getServerConfig,
+  isToolAllowedByServerConfig,
   loadConfig,
   loadDisabledTools,
 } from '../config.js';
@@ -58,11 +59,13 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
 
   let client: Client;
   let close: () => Promise<void> = async () => {};
+  let instructions: string | undefined;
 
   try {
     const connection = await connectToServer(serverName, serverConfig);
     client = connection.client;
     close = connection.close;
+    instructions = connection.instructions;
   } catch (error) {
     console.error(
       formatCliError(
@@ -93,6 +96,19 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
         process.exit(ErrorCode.CLIENT_ERROR);
       }
 
+      if (!isToolAllowedByServerConfig(toolName, serverConfig)) {
+        console.error(
+          formatCliError(
+            toolDisabledError(
+              `${serverName}/${toolName}`,
+              'server config filter',
+              'includeTools/disabledTools',
+            ),
+          ),
+        );
+        process.exit(ErrorCode.CLIENT_ERROR);
+      }
+
       const tools = await listTools(client);
       const tool = tools.find((t) => t.name === toolName);
 
@@ -100,7 +116,8 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
         const availableTools = tools
           .filter(
             (t) =>
-              !findDisabledMatch(`${serverName}/${t.name}`, disabledPatterns),
+              !findDisabledMatch(`${serverName}/${t.name}`, disabledPatterns) &&
+              isToolAllowedByServerConfig(t.name, serverConfig),
           )
           .map((t) => t.name);
         console.error(
@@ -126,7 +143,9 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
       const tools = await listTools(client);
 
       const filteredTools = tools.filter(
-        (t) => !findDisabledMatch(`${serverName}/${t.name}`, disabledPatterns),
+        (t) =>
+          !findDisabledMatch(`${serverName}/${t.name}`, disabledPatterns) &&
+          isToolAllowedByServerConfig(t.name, serverConfig),
       );
 
       if (options.json) {
@@ -139,6 +158,7 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
               description: t.description,
               inputSchema: t.inputSchema,
             })),
+            instructions,
           }),
         );
       } else {
@@ -148,6 +168,7 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
             serverConfig,
             filteredTools,
             options.withDescriptions,
+            instructions,
           ),
         );
       }

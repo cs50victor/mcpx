@@ -114,7 +114,7 @@ describe('CLI Integration Tests', () => {
     });
 
     test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['--json']);
+      const result = await runCli(['list', '--json']);
 
       expect(result.exitCode).toBe(0);
       const parsed = JSON.parse(result.stdout);
@@ -283,7 +283,7 @@ describe('CLI Integration Tests', () => {
     test('handles missing config gracefully', async () => {
       const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
       const result =
-        await $`bun run ${cliPath} -c /nonexistent/config.json`.nothrow();
+        await $`bun run ${cliPath} list -c /nonexistent/config.json`.nothrow();
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr.toString()).toContain('not found');
@@ -356,14 +356,14 @@ describe('HTTP Transport Integration Tests', () => {
 
   describe('list command with HTTP server', () => {
     test('lists HTTP server and its tools', async () => {
-      const result = await runCli([]);
+      const result = await runCli(['list']);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('deepwiki');
     });
 
     test('outputs JSON with --json flag', async () => {
-      const result = await runCli(['--json']);
+      const result = await runCli(['list', '--json']);
 
       expect(result.exitCode).toBe(0);
       const parsed = JSON.parse(result.stdout);

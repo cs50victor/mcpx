@@ -65,7 +65,7 @@ describe('errors', () => {
       const error = configSearchError();
       expect(error.type).toBe('CONFIG_NOT_FOUND');
       expect(error.details).toContain('Searched:');
-      expect(error.suggestion).toContain('mcp_servers.json');
+      expect(error.suggestion).toContain('.mcp.json');
     });
 
     test('configInvalidJsonError includes parse error', () => {

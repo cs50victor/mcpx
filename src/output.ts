@@ -23,13 +23,22 @@ function color(text: string, colorCode: string): string {
 }
 
 export function formatServerList(
-  servers: Array<{ name: string; tools: ToolInfo[] }>,
+  servers: Array<{ name: string; tools: ToolInfo[]; instructions?: string }>,
   withDescriptions: boolean,
 ): string {
   const lines: string[] = [];
 
   for (const server of servers) {
-    lines.push(color(server.name, colors.bold + colors.cyan));
+    if (withDescriptions && server.instructions) {
+      const firstLine = server.instructions.split('\n')[0].trim();
+      const truncated =
+        firstLine.length > 80 ? `${firstLine.substring(0, 77)}...` : firstLine;
+      lines.push(
+        `${color(server.name, colors.bold + colors.cyan)} - ${color(truncated, colors.dim)}`,
+      );
+    } else {
+      lines.push(color(server.name, colors.bold + colors.cyan));
+    }
 
     for (const tool of server.tools) {
       if (withDescriptions && tool.description) {
@@ -68,6 +77,7 @@ export function formatServerDetails(
   config: ServerConfig,
   tools: ToolInfo[],
   withDescriptions = false,
+  instructions?: string,
 ): string {
   const lines: string[] = [];
 
@@ -83,6 +93,12 @@ export function formatServerDetails(
     lines.push(
       `${color('Command:', colors.bold)} ${config.command} ${(config.args || []).join(' ')}`,
     );
+  }
+
+  if (instructions) {
+    lines.push('');
+    lines.push(`${color('Instructions:', colors.bold)}`);
+    lines.push(`  ${instructions.split('\n').join('\n  ')}`);
   }
 
   lines.push('');

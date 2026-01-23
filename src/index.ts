@@ -30,10 +30,11 @@ import {
 import { VERSION } from './version.js';
 
 /** Positional subcommands - used for parsing and typo detection */
-const SUBCOMMANDS = ['config', 'daemon', 'grep'] as const;
+const SUBCOMMANDS = ['config', 'daemon', 'grep', 'list', 'ls'] as const;
 
 interface ParsedArgs {
   command:
+    | 'none'
     | 'list'
     | 'grep'
     | 'info'
@@ -55,7 +56,7 @@ interface ParsedArgs {
 
 function parseArgs(args: string[]): ParsedArgs {
   const result: ParsedArgs = {
-    command: 'list',
+    command: 'none',
     json: false,
     withDescriptions: false,
   };
@@ -107,6 +108,8 @@ function parseArgs(args: string[]): ParsedArgs {
 
   // Determine command from positional arguments
   if (positional.length === 0) {
+    result.command = 'none';
+  } else if (positional[0] === 'list' || positional[0] === 'ls') {
     result.command = 'list';
   } else if (positional[0] === 'config') {
     result.command = 'config';
@@ -162,10 +165,12 @@ function parseArgs(args: string[]): ParsedArgs {
 function printHelp(): void {
   const socketPath = getDaemonSocketPath();
   console.log(`
-mcpx v${VERSION} - A lightweight CLI for MCP servers
+mcpx v${VERSION} - Dynamic MCP tool discovery and invocation for AI agents
 
 Usage:
-  mcpx [options]                           List all servers and tools
+  mcpx                                     Show this help message
+  mcpx list                                List all servers and tools
+  mcpx ls                                  Alias for list
   mcpx [options] config                    Show config file locations
   mcpx [options] grep <pattern>            Search tools by glob pattern
   mcpx [options] <server>                  Show server tools and parameters
@@ -196,16 +201,16 @@ Environment Variables:
   MCP_DAEMON_IDLE_MS       Daemon idle timeout in ms (default: 300000)
 
 Examples:
-  mcpx                                    # List all servers
-  mcpx -d                                 # List with descriptions
+  mcpx list                               # List all servers
+  mcpx list -d                            # List with descriptions
   mcpx grep "*file*"                      # Search for file tools
   mcpx filesystem                         # Show server tools
   mcpx filesystem/read_file               # Show tool schema
   mcpx filesystem/read_file '{"path":"./README.md"}'  # Call tool
   echo '{"path":"./file"}' | mcpx server/tool -       # Read JSON from stdin
 
-  # Inline config (no config file needed):
-  mcpx -c '{"mcpServers":{"s":{"command":"npx","args":["-y","@mcp/server"]}}}' s/tool
+  # Inline config (flat format):
+  mcpx -c '{"s":{"command":"npx","args":["-y","@mcp/server"]}}' s/tool
 
 Daemon Mode (persistent connections for stateful servers):
   mcpx daemon start                          # Start daemon + all servers from config
@@ -224,11 +229,16 @@ Daemon Mode (persistent connections for stateful servers):
                'mcpx server/tool' reuses that persistent connection.
 
 Config File:
-  The CLI looks for mcp_servers.json in:
+  The CLI looks for config in:
     1. Path specified by MCP_CONFIG_PATH or -c/--config
-    2. ./mcp_servers.json (current directory)
-    3. ~/.mcp_servers.json
-    4. ~/.config/mcp/mcp_servers.json
+    2. ./.mcp.json (current directory, preferred)
+    3. ./mcp.json
+    4. ~/.mcp.json
+    5. ~/.config/mcp/mcp.json
+
+  Supported formats:
+    Flat:    {"server": {"command": "...", "args": [...]}}
+    Wrapped: {"mcpServers": {"server": {"command": "..."}}}
 `);
 }
 
@@ -236,6 +246,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   switch (args.command) {
+    case 'none':
     case 'help':
       printHelp();
       break;

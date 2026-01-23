@@ -14,7 +14,7 @@ describe('config command', () => {
 
   beforeEach(async () => {
     tempDir = await realpath(await mkdtemp(join(tmpdir(), 'mcpx-config-test-')));
-    configPath = join(tempDir, 'mcp_servers.json');
+    configPath = join(tempDir, '.mcp.json');
     await writeFile(
       configPath,
       JSON.stringify({
@@ -53,9 +53,9 @@ describe('config command', () => {
     const result = await runCli(['config', '-c', configPath]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('mcp_servers.json');
-    expect(result.stdout).toContain('.mcp_servers.json');
-    expect(result.stdout).toContain('.config/mcp/mcp_servers.json');
+    expect(result.stdout).toContain('.mcp.json');
+    expect(result.stdout).toContain('mcp.json');
+    expect(result.stdout).toContain('.config/mcp/mcp.json');
   });
 
   test('indicates which paths exist vs not', async () => {

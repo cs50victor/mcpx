@@ -2,23 +2,29 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
+  type CliError,
   ErrorCode,
   configInvalidJsonError,
-  configMissingFieldError,
   configNotFoundError,
   configSearchError,
   formatCliError,
   serverNotFoundError,
 } from './errors.js';
 
-export interface StdioServerConfig {
+export interface ToolFilterConfig {
+  includeTools?: string[];
+  allowedTools?: string[];
+  disabledTools?: string[];
+}
+
+export interface StdioServerConfig extends ToolFilterConfig {
   command: string;
   args?: string[];
   env?: Record<string, string>;
   cwd?: string;
 }
 
-export interface HttpServerConfig {
+export interface HttpServerConfig extends ToolFilterConfig {
   url: string;
   headers?: Record<string, string>;
   timeout?: number;
@@ -163,11 +169,83 @@ function getDefaultConfigPaths(): string[] {
   const paths: string[] = [];
   const home = homedir();
 
+  paths.push(resolve('./.mcp.json'));
+  paths.push(resolve('./mcp.json'));
+  paths.push(join(home, '.mcp.json'));
+  paths.push(join(home, '.config', 'mcp', 'mcp.json'));
+
+  return paths;
+}
+
+function getLegacyConfigPaths(): string[] {
+  const paths: string[] = [];
+  const home = homedir();
+
   paths.push(resolve('./mcp_servers.json'));
   paths.push(join(home, '.mcp_servers.json'));
   paths.push(join(home, '.config', 'mcp', 'mcp_servers.json'));
 
   return paths;
+}
+
+function checkForLegacyConfig(): string | undefined {
+  for (const path of getLegacyConfigPaths()) {
+    if (existsSync(path)) {
+      return path;
+    }
+  }
+  return undefined;
+}
+
+export function legacyConfigError(legacyPath: string): CliError {
+  return {
+    code: ErrorCode.CLIENT_ERROR,
+    type: 'CONFIG_LEGACY_FILENAME',
+    message: `"mcp_servers.json" filename is no longer supported (deprecated in v0.2.0)`,
+    details: `Found: ${legacyPath}`,
+    suggestion:
+      'Rename your config file:\n  mv mcp_servers.json .mcp.json\n\nSupported filenames: .mcp.json, mcp.json\nSee: https://github.com/cs50victor/mcpx#config-format',
+  };
+}
+
+function isWrappedFormat(
+  config: unknown,
+): config is { mcpServers: Record<string, unknown> } {
+  return (
+    typeof config === 'object' &&
+    config !== null &&
+    'mcpServers' in config &&
+    typeof (config as { mcpServers: unknown }).mcpServers === 'object' &&
+    (config as { mcpServers: unknown }).mcpServers !== null
+  );
+}
+
+function isFlatServerConfig(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  return 'command' in value || 'url' in value;
+}
+
+function normalizeConfig(rawConfig: unknown): {
+  mcpServers: Record<string, ServerConfig>;
+} {
+  if (isWrappedFormat(rawConfig)) {
+    return { mcpServers: rawConfig.mcpServers as Record<string, ServerConfig> };
+  }
+
+  if (typeof rawConfig === 'object' && rawConfig !== null) {
+    const servers: Record<string, ServerConfig> = {};
+    for (const [key, value] of Object.entries(rawConfig)) {
+      if (
+        isFlatServerConfig(value) ||
+        (typeof value === 'object' && value !== null)
+      ) {
+        servers[key] = value as ServerConfig;
+      }
+    }
+    return { mcpServers: servers };
+  }
+
+  return { mcpServers: {} };
 }
 
 export interface ConfigPathInfo {
@@ -225,14 +303,14 @@ function isInlineJson(value: string): boolean {
 export async function loadConfig(
   explicitPath?: string,
 ): Promise<McpServersConfig> {
-  let config: McpServersConfig;
+  let rawConfig: unknown;
   let configSource: string;
 
   const inlineValue = explicitPath ?? process.env.MCP_CONFIG_PATH;
   if (inlineValue && isInlineJson(inlineValue)) {
     configSource = '<inline>';
     try {
-      config = JSON.parse(inlineValue);
+      rawConfig = JSON.parse(inlineValue);
     } catch (e) {
       throw new Error(
         formatCliError(
@@ -254,6 +332,11 @@ export async function loadConfig(
         throw new Error(formatCliError(configNotFoundError(configPath)));
       }
     } else {
+      const legacyPath = checkForLegacyConfig();
+      if (legacyPath) {
+        throw new Error(formatCliError(legacyConfigError(legacyPath)));
+      }
+
       const searchPaths = getDefaultConfigPaths();
       for (const path of searchPaths) {
         if (existsSync(path)) {
@@ -272,7 +355,7 @@ export async function loadConfig(
     const content = await file.text();
 
     try {
-      config = JSON.parse(content);
+      rawConfig = JSON.parse(content);
     } catch (e) {
       throw new Error(
         formatCliError(
@@ -282,17 +365,17 @@ export async function loadConfig(
     }
   }
 
-  if (!config.mcpServers || typeof config.mcpServers !== 'object') {
-    throw new Error(formatCliError(configMissingFieldError(configSource)));
-  }
+  const normalized = normalizeConfig(rawConfig);
 
-  if (Object.keys(config.mcpServers).length === 0) {
+  if (Object.keys(normalized.mcpServers).length === 0) {
     console.error(
-      '[mcpx] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.',
+      '[mcpx] Warning: No servers configured. Add server configurations to use MCP tools.',
     );
   }
 
-  for (const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
+  for (const [serverName, serverConfig] of Object.entries(
+    normalized.mcpServers,
+  )) {
     if (!serverConfig || typeof serverConfig !== 'object') {
       throw new Error(
         formatCliError({
@@ -332,9 +415,24 @@ export async function loadConfig(
         }),
       );
     }
+
+    const hasIncludeTools = 'includeTools' in serverConfig;
+    const hasAllowedTools = 'allowedTools' in serverConfig;
+
+    if (hasIncludeTools && hasAllowedTools) {
+      throw new Error(
+        formatCliError({
+          code: ErrorCode.CLIENT_ERROR,
+          type: 'CONFIG_INVALID_SERVER',
+          message: `Server "${serverName}" has both "includeTools" and "allowedTools"`,
+          details: 'These fields are aliases - use one or the other, not both',
+          suggestion: `Remove one field. Both accept glob patterns:\n  "includeTools": ["read_*", "write_*"]   # Amp Code convention\n  "allowedTools": ["read_*", "write_*"]   # Alternative naming`,
+        }),
+      );
+    }
   }
 
-  config = substituteEnvVarsInObject(config);
+  const config: McpServersConfig = substituteEnvVarsInObject(normalized);
   config._configSource = configSource;
 
   return config;
@@ -427,4 +525,75 @@ export function findDisabledMatch(
     }
   }
   return undefined;
+}
+
+export function getIncludePatterns(
+  serverConfig: ServerConfig,
+): string[] | undefined {
+  if ('includeTools' in serverConfig && serverConfig.includeTools) {
+    return serverConfig.includeTools;
+  }
+  if ('allowedTools' in serverConfig && serverConfig.allowedTools) {
+    return serverConfig.allowedTools;
+  }
+  return undefined;
+}
+
+export function getDisabledPatterns(
+  serverConfig: ServerConfig,
+): string[] | undefined {
+  if ('disabledTools' in serverConfig && serverConfig.disabledTools) {
+    return serverConfig.disabledTools;
+  }
+  return undefined;
+}
+
+export function isToolAllowedByServerConfig(
+  toolName: string,
+  serverConfig: ServerConfig,
+): boolean {
+  const includePatterns = getIncludePatterns(serverConfig);
+  const disabledPatterns = getDisabledPatterns(serverConfig);
+
+  if (includePatterns) {
+    const isIncluded = includePatterns.some((pattern) =>
+      globMatch(pattern, toolName),
+    );
+    if (!isIncluded) {
+      return false;
+    }
+  }
+
+  if (disabledPatterns) {
+    const isDisabled = disabledPatterns.some((pattern) =>
+      globMatch(pattern, toolName),
+    );
+    if (isDisabled) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function sortObjectKeys(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectKeys);
+  }
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(obj).sort()) {
+    sorted[key] = sortObjectKeys((obj as Record<string, unknown>)[key]);
+  }
+  return sorted;
+}
+
+export function computeConfigHash(config: ServerConfig): string {
+  const normalized = sortObjectKeys(config);
+  const json = JSON.stringify(normalized);
+  const hasher = new Bun.CryptoHasher('sha256');
+  hasher.update(json);
+  return hasher.digest('hex').substring(0, 16);
 }

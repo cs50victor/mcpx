@@ -10,6 +10,7 @@ import {
   type McpServersConfig,
   findDisabledMatch,
   getServerConfig,
+  isToolAllowedByServerConfig,
   listServerNames,
   loadConfig,
   loadDisabledTools,
@@ -77,6 +78,10 @@ async function searchServerTools(
       const results: SearchResult[] = [];
 
       for (const tool of tools) {
+        if (!isToolAllowedByServerConfig(tool.name, serverConfig)) {
+          continue;
+        }
+
         const fullPath = `${serverName}/${tool.name}`;
         const matchesName = pattern.test(tool.name);
         const matchesPath = pattern.test(fullPath);
@@ -114,9 +119,7 @@ export async function grepCommand(options: GrepOptions): Promise<void> {
   const serverNames = listServerNames(config);
 
   if (serverNames.length === 0) {
-    console.error(
-      'Warning: No servers configured. Add servers to mcp_servers.json',
-    );
+    console.error('Warning: No servers configured. Add servers to .mcp.json');
     return;
   }
 

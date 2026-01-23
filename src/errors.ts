@@ -34,7 +34,7 @@ export function configNotFoundError(path: string): CliError {
     code: ErrorCode.CLIENT_ERROR,
     type: 'CONFIG_NOT_FOUND',
     message: `Config file not found: ${path}`,
-    suggestion: `Create mcp_servers.json with: { "mcpServers": { "server-name": { "command": "..." } } }. Run 'mcpx --help' first if you haven't.`,
+    suggestion: `Create .mcp.json with: { "server-name": { "command": "..." } }. Run 'mcpx --help' first if you haven't.`,
   };
 }
 
@@ -42,10 +42,10 @@ export function configSearchError(): CliError {
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'CONFIG_NOT_FOUND',
-    message: 'No mcp_servers.json found in search paths',
+    message: 'No config file found in search paths',
     details:
-      'Searched: ./mcp_servers.json, ~/.mcp_servers.json, ~/.config/mcp/mcp_servers.json',
-    suggestion: `Create mcp_servers.json in current directory or use -c/--config to specify path. Run 'mcpx --help' first if you haven't.`,
+      'Searched: ./.mcp.json, ./mcp.json, ~/.mcp.json, ~/.config/mcp/mcp.json',
+    suggestion: `Create .mcp.json in current directory or use -c/--config to specify path. Run 'mcpx --help' first if you haven't.`,
   };
 }
 
