@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "servers": [
+    {
+      "name": "filesystem",
+      "description": "Read/write files and directories",
+      "toolCount": 11,
+      "recommended": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
+      },
+      "tools": [
+        "read_file",
+        "read_multiple_files",
+        "write_file",
+        "edit_file",
+        "create_directory",
+        "list_directory",
+        "directory_tree",
+        "move_file",
+        "search_files",
+        "get_file_info",
+        "list_allowed_directories"
+      ],
+      "notes": "Replace /path/to/allowed/dir with the directory you want to expose. Multiple directories can be specified."
+    },
+    {
+      "name": "fetch",
+      "description": "Make HTTP requests and fetch web content",
+      "toolCount": 1,
+      "recommended": {
+        "command": "uvx",
+        "args": ["mcp-server-fetch"]
+      },
+      "tools": ["fetch"],
+      "notes": "Fetches URLs and returns content. Supports various content types."
+    },
+    {
+      "name": "git",
+      "description": "Git repository operations",
+      "toolCount": 12,
+      "recommended": {
+        "command": "uvx",
+        "args": ["mcp-server-git", "--repository", "/path/to/repo"]
+      },
+      "tools": [
+        "git_status",
+        "git_diff_unstaged",
+        "git_diff_staged",
+        "git_diff",
+        "git_commit",
+        "git_add",
+        "git_reset",
+        "git_log",
+        "git_create_branch",
+        "git_checkout",
+        "git_show",
+        "git_init"
+      ],
+      "notes": "Replace /path/to/repo with your repository path."
+    },
+    {
+      "name": "memory",
+      "description": "Knowledge graph-based persistent memory",
+      "toolCount": 7,
+      "recommended": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-memory"]
+      },
+      "tools": [
+        "create_entities",
+        "create_relations",
+        "add_observations",
+        "delete_entities",
+        "delete_observations",
+        "delete_relations",
+        "read_graph",
+        "search_nodes",
+        "open_nodes"
+      ],
+      "notes": "Stores entities and relations in a knowledge graph for persistent memory across sessions."
+    },
+    {
+      "name": "sequentialthinking",
+      "description": "Dynamic problem-solving through thought sequences",
+      "toolCount": 1,
+      "recommended": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sequentialthinking"]
+      },
+      "tools": ["sequentialthinking"],
+      "notes": "Helps break down complex problems into sequential reasoning steps."
+    },
+    {
+      "name": "time",
+      "description": "Get current time and timezone conversions",
+      "toolCount": 2,
+      "recommended": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-time"]
+      },
+      "tools": ["get_current_time", "convert_time"],
+      "notes": "Provides current time in various timezones and converts between them."
+    },
+    {
+      "name": "playwright",
+      "description": "Browser automation and web scraping",
+      "toolCount": 12,
+      "recommended": {
+        "command": "npx",
+        "args": ["@playwright/mcp@latest"]
+      },
+      "tools": [
+        "browser_navigate",
+        "browser_screenshot",
+        "browser_click",
+        "browser_fill",
+        "browser_select",
+        "browser_hover",
+        "browser_evaluate",
+        "browser_console",
+        "browser_close",
+        "browser_wait",
+        "browser_tab_new",
+        "browser_tab_close"
+      ],
+      "notes": "Full browser automation via Playwright. Headless by default."
+    },
+    {
+      "name": "brave-search",
+      "description": "Web search via Brave Search API",
+      "toolCount": 2,
+      "recommended": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"]
+      },
+      "tools": ["brave_web_search", "brave_local_search"],
+      "envVars": ["BRAVE_API_KEY"],
+      "notes": "Requires BRAVE_API_KEY environment variable. Get key at https://brave.com/search/api/"
+    },
+    {
+      "name": "github",
+      "description": "GitHub API operations",
+      "toolCount": 20,
+      "recommended": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"]
+      },
+      "tools": [
+        "create_or_update_file",
+        "search_repositories",
+        "create_repository",
+        "get_file_contents",
+        "push_files",
+        "create_issue",
+        "create_pull_request",
+        "fork_repository",
+        "create_branch",
+        "list_commits",
+        "list_issues",
+        "update_issue",
+        "add_issue_comment",
+        "search_code",
+        "search_issues",
+        "search_users",
+        "get_issue",
+        "get_pull_request",
+        "list_pull_requests",
+        "create_pending_pull_request_review"
+      ],
+      "envVars": ["GITHUB_PERSONAL_ACCESS_TOKEN"],
+      "notes": "Requires GITHUB_PERSONAL_ACCESS_TOKEN. Create at https://github.com/settings/tokens"
+    },
+    {
+      "name": "slack",
+      "description": "Slack workspace operations",
+      "toolCount": 7,
+      "recommended": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-slack"]
+      },
+      "tools": [
+        "slack_list_channels",
+        "slack_post_message",
+        "slack_reply_to_thread",
+        "slack_add_reaction",
+        "slack_get_channel_history",
+        "slack_get_thread_replies",
+        "slack_get_users"
+      ],
+      "envVars": ["SLACK_BOT_TOKEN", "SLACK_TEAM_ID"],
+      "notes": "Requires SLACK_BOT_TOKEN and SLACK_TEAM_ID. Create Slack app at https://api.slack.com/apps"
+    }
+  ]
+}

@@ -10,6 +10,8 @@ import {
   formatToolResult,
   formatJson,
   formatError,
+  formatRegistryList,
+  formatRegistryServer,
 } from '../src/output';
 
 // Disable colors for testing
@@ -167,6 +169,92 @@ describe('output', () => {
     test('formats error message', () => {
       const output = formatError('Something went wrong');
       expect(output).toContain('Something went wrong');
+    });
+  });
+
+  describe('formatRegistryList', () => {
+    test('formats registry servers as table', () => {
+      const servers = [
+        {
+          name: 'filesystem',
+          description: 'Read/write files',
+          toolCount: 6,
+          recommended: { command: 'npx', args: ['-y', 'server'] },
+          tools: ['read', 'write'],
+        },
+        {
+          name: 'fetch',
+          description: 'HTTP requests',
+          toolCount: 1,
+          recommended: { command: 'uvx', args: ['fetch'] },
+          tools: ['fetch'],
+        },
+      ];
+
+      const output = formatRegistryList(servers);
+      expect(output).toContain('filesystem');
+      expect(output).toContain('Read/write files');
+      expect(output).toContain('6 tools');
+      expect(output).toContain('fetch');
+      expect(output).toContain('1 tool');
+    });
+  });
+
+  describe('formatRegistryServer', () => {
+    test('formats server details with config', () => {
+      const server = {
+        name: 'filesystem',
+        description: 'Read/write files and directories',
+        toolCount: 6,
+        recommended: {
+          command: 'npx',
+          args: ['-y', '@modelcontextprotocol/server-filesystem', '/path'],
+        },
+        tools: ['read_file', 'write_file', 'list_directory'],
+        notes: 'Replace /path with your directory',
+      };
+
+      const output = formatRegistryServer(server);
+      expect(output).toContain('filesystem');
+      expect(output).toContain('Read/write files');
+      expect(output).toContain('Recommended setup');
+      expect(output).toContain('npx');
+      expect(output).toContain('Tools (6)');
+      expect(output).toContain('read_file');
+      expect(output).toContain('Notes');
+      expect(output).toContain('Replace /path');
+    });
+
+    test('formats server with envVars', () => {
+      const server = {
+        name: 'brave-search',
+        description: 'Web search',
+        toolCount: 2,
+        recommended: { command: 'npx', args: ['-y', 'brave'] },
+        tools: ['search'],
+        envVars: ['BRAVE_API_KEY'],
+      };
+
+      const output = formatRegistryServer(server);
+      expect(output).toContain('Required environment variables');
+      expect(output).toContain('BRAVE_API_KEY');
+    });
+
+    test('formats server with alternatives', () => {
+      const server = {
+        name: 'git',
+        description: 'Git operations',
+        toolCount: 12,
+        recommended: { command: 'uvx', args: ['mcp-server-git'] },
+        tools: ['git_status'],
+        alternatives: [
+          { name: 'npm', command: 'npx', args: ['-y', '@mcp/server-git'] },
+        ],
+      };
+
+      const output = formatRegistryServer(server);
+      expect(output).toContain('Alternatives');
+      expect(output).toContain('npm');
     });
   });
 });

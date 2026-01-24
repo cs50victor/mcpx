@@ -247,3 +247,32 @@ export function toolDisabledError(
     suggestion: `Use 'mcpx grep <pattern>' to find alternative tools across all servers.`,
   };
 }
+
+export function registryFetchError(url: string, cause: string): CliError {
+  return {
+    code: ErrorCode.NETWORK_ERROR,
+    type: 'REGISTRY_FETCH_FAILED',
+    message: `Failed to fetch registry from ${url}`,
+    details: cause,
+    suggestion:
+      'Check network connectivity. Use MCPX_REGISTRY_URL to specify a different registry.',
+  };
+}
+
+export function registryServerNotFoundError(
+  serverName: string,
+  available: string[],
+): CliError {
+  const availableList =
+    available.length > 0
+      ? available.slice(0, 10).join(', ') +
+        (available.length > 10 ? ` (+${available.length - 10} more)` : '')
+      : '(none)';
+  return {
+    code: ErrorCode.CLIENT_ERROR,
+    type: 'REGISTRY_SERVER_NOT_FOUND',
+    message: `Server "${serverName}" not found in registry`,
+    details: `Available: ${availableList}`,
+    suggestion: `Run 'mcpx registry list' to see all available servers.`,
+  };
+}
