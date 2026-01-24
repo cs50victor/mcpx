@@ -61,7 +61,7 @@ interface ParsedArgs {
   daemonAction?: 'start' | 'stop' | 'status';
   daemonServers?: string[];
   daemonForce?: boolean;
-  registryAction?: 'list' | 'get';
+  registryAction?: 'help' | 'list' | 'get';
   registryServerName?: string;
 }
 
@@ -148,7 +148,9 @@ function parseArgs(args: string[]): ParsedArgs {
   } else if (positional[0] === 'registry') {
     result.command = 'registry';
     const action = positional[1];
-    if (!action || action === 'list') {
+    if (!action) {
+      result.registryAction = 'help';
+    } else if (action === 'list') {
       result.registryAction = 'list';
     } else if (action === 'get') {
       result.registryAction = 'get';
@@ -200,7 +202,8 @@ Usage:
   mcpx [options] <server>/<tool>           Show tool schema and description
   mcpx [options] <server>/<tool> <json>    Call tool with arguments
   mcpx daemon <start|stop|status>          Manage persistent connection daemon
-  mcpx registry [list]                     List available MCP servers from registry
+  mcpx registry                            Show registry command help
+  mcpx registry list                       List available MCP servers from registry
   mcpx registry get <name>                 Show server details and config
 
 Options:
@@ -239,7 +242,8 @@ Examples:
   mcpx -c '{"s":{"command":"npx","args":["-y","@mcp/server"]}}' s/tool
 
 Registry (discover MCP servers):
-  mcpx registry                           # List all available servers
+  mcpx registry                           # Show registry help
+  mcpx registry list                      # List all available servers
   mcpx registry list --json               # List as JSON
   mcpx registry get filesystem            # Show filesystem server config
   mcpx registry get playwright --json     # Get config as JSON for .mcp.json

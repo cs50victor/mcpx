@@ -17,12 +17,31 @@ import {
 } from '../registry.js';
 
 export interface RegistryOptions {
-  action: 'list' | 'get';
+  action: 'help' | 'list' | 'get';
   serverName?: string;
   json: boolean;
 }
 
+function printRegistryHelp(): void {
+  console.log(`mcpx registry - Discover available MCP servers
+
+Usage:
+  mcpx registry list              List all available servers
+  mcpx registry list --json       List servers as JSON
+  mcpx registry get <name>        Show server details and config
+  mcpx registry get <name> --json Get server config as JSON (for .mcp.json)
+  mcpx registry <name>            Shorthand for 'get <name>'
+
+Environment:
+  MCPX_REGISTRY_URL    Custom registry URL (default: GitHub-hosted registry)`);
+}
+
 export async function registryCommand(options: RegistryOptions): Promise<void> {
+  if (options.action === 'help') {
+    printRegistryHelp();
+    return;
+  }
+
   let registry: Registry;
   try {
     registry = await fetchRegistry();

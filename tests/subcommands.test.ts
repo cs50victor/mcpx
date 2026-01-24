@@ -54,7 +54,8 @@ describe('subcommand sync', () => {
     test('xyz (distance > 2)', async () => {
       const result = await $`bun run ${CLI_PATH} xyz`.nothrow();
       expect(result.stderr.toString()).not.toContain('Did you mean');
-      expect(result.stderr.toString()).toContain('not found');
+      // NOTE(victor): without config, fails at config loading; with config, fails at server lookup
+      expect(result.exitCode).toBe(1);
     });
 
     test('playwright treated as server name', async () => {
