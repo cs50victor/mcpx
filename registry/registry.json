@@ -6,7 +6,7 @@
       "description": "Read/write files and directories",
       "toolCount": 11,
       "recommended": {
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
       },
       "tools": [
@@ -64,7 +64,7 @@
       "description": "Knowledge graph-based persistent memory",
       "toolCount": 7,
       "recommended": {
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-memory"]
       },
       "tools": [
@@ -85,7 +85,7 @@
       "description": "Dynamic problem-solving through thought sequences",
       "toolCount": 1,
       "recommended": {
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-sequentialthinking"]
       },
       "tools": ["sequentialthinking"],
@@ -96,7 +96,7 @@
       "description": "Get current time and timezone conversions",
       "toolCount": 2,
       "recommended": {
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-time"]
       },
       "tools": ["get_current_time", "convert_time"],
@@ -107,7 +107,7 @@
       "description": "Browser automation and web scraping",
       "toolCount": 12,
       "recommended": {
-        "command": "npx",
+        "command": "bunx",
         "args": ["@playwright/mcp@latest"]
       },
       "tools": [
@@ -131,7 +131,7 @@
       "description": "Web search via Brave Search API",
       "toolCount": 2,
       "recommended": {
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-brave-search"]
       },
       "tools": ["brave_web_search", "brave_local_search"],
@@ -143,7 +143,7 @@
       "description": "GitHub API operations",
       "toolCount": 20,
       "recommended": {
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-github"]
       },
       "tools": [
@@ -176,7 +176,7 @@
       "description": "Slack workspace operations",
       "toolCount": 7,
       "recommended": {
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-slack"]
       },
       "tools": [
