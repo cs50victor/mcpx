@@ -1,6 +1,7 @@
 import type { ToolInfo } from './client.js';
 import type { ServerConfig } from './config.js';
 import { isHttpServer } from './config.js';
+import type { RegistryServer } from './registry.js';
 
 const colors = {
   reset: '\x1b[0m',
@@ -179,4 +180,66 @@ export function formatJson(data: unknown): string {
 
 export function formatError(message: string): string {
   return color(`Error: ${message}`, '\x1b[31m'); // Red
+}
+
+export function formatRegistryList(servers: RegistryServer[]): string {
+  const lines: string[] = [];
+  const maxNameLen = Math.max(...servers.map((s) => s.name.length));
+
+  for (const server of servers) {
+    const name = color(
+      server.name.padEnd(maxNameLen),
+      colors.bold + colors.cyan,
+    );
+    const desc = color(server.description, colors.dim);
+    const tools = `${server.toolCount} tool${server.toolCount !== 1 ? 's' : ''}`;
+    lines.push(`${name}  ${desc.padEnd(50)}  ${tools}`);
+  }
+
+  return lines.join('\n');
+}
+
+export function formatRegistryServer(server: RegistryServer): string {
+  const lines: string[] = [];
+
+  lines.push(
+    `${color(server.name, colors.bold + colors.cyan)} - ${server.description}`,
+  );
+  lines.push('');
+
+  lines.push(`${color('Recommended setup:', colors.bold)}`);
+  const configJson = JSON.stringify(
+    { [server.name]: server.recommended },
+    null,
+    2,
+  );
+  lines.push(`  ${configJson.split('\n').join('\n  ')}`);
+  lines.push('');
+
+  if (server.alternatives && server.alternatives.length > 0) {
+    lines.push(`${color('Alternatives:', colors.bold)}`);
+    for (const alt of server.alternatives) {
+      lines.push(
+        `  ${color(alt.name, colors.yellow)}: ${alt.command} ${alt.args.join(' ')}`,
+      );
+    }
+    lines.push('');
+  }
+
+  lines.push(`${color(`Tools (${server.toolCount}):`, colors.bold)}`);
+  lines.push(`  ${server.tools.join(', ')}`);
+
+  if (server.envVars && server.envVars.length > 0) {
+    lines.push('');
+    lines.push(`${color('Required environment variables:', colors.bold)}`);
+    lines.push(`  ${server.envVars.join(', ')}`);
+  }
+
+  if (server.notes) {
+    lines.push('');
+    lines.push(`${color('Notes:', colors.bold)}`);
+    lines.push(`  ${server.notes}`);
+  }
+
+  return lines.join('\n');
 }

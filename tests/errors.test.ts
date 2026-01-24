@@ -17,6 +17,8 @@ import {
   invalidJsonArgsError,
   unknownOptionError,
   missingArgumentError,
+  registryFetchError,
+  registryServerNotFoundError,
   ErrorCode,
 } from '../src/errors';
 
@@ -194,6 +196,45 @@ describe('errors', () => {
       expect(ErrorCode.SERVER_ERROR).toBe(2);
       expect(ErrorCode.NETWORK_ERROR).toBe(3);
       expect(ErrorCode.AUTH_ERROR).toBe(4);
+    });
+  });
+
+  describe('registry errors', () => {
+    test('registryFetchError includes url and cause', () => {
+      const error = registryFetchError(
+        'https://example.com/registry.json',
+        '404 Not Found',
+      );
+      expect(error.type).toBe('REGISTRY_FETCH_FAILED');
+      expect(error.code).toBe(ErrorCode.NETWORK_ERROR);
+      expect(error.message).toContain('https://example.com/registry.json');
+      expect(error.details).toContain('404 Not Found');
+      expect(error.suggestion).toContain('MCPX_REGISTRY_URL');
+    });
+
+    test('registryServerNotFoundError lists available servers', () => {
+      const error = registryServerNotFoundError('unknown', [
+        'filesystem',
+        'fetch',
+        'git',
+      ]);
+      expect(error.type).toBe('REGISTRY_SERVER_NOT_FOUND');
+      expect(error.code).toBe(ErrorCode.CLIENT_ERROR);
+      expect(error.message).toContain('unknown');
+      expect(error.details).toContain('filesystem');
+      expect(error.details).toContain('fetch');
+      expect(error.suggestion).toContain('mcpx registry list');
+    });
+
+    test('registryServerNotFoundError truncates long lists', () => {
+      const servers = Array.from({ length: 15 }, (_, i) => `server${i}`);
+      const error = registryServerNotFoundError('unknown', servers);
+      expect(error.details).toContain('+5 more');
+    });
+
+    test('registryServerNotFoundError handles empty list', () => {
+      const error = registryServerNotFoundError('unknown', []);
+      expect(error.details).toContain('(none)');
     });
   });
 });

@@ -6,6 +6,7 @@ import { configCommand } from './commands/config.js';
 import { grepCommand } from './commands/grep.js';
 import { infoCommand } from './commands/info.js';
 import { listCommand } from './commands/list.js';
+import { registryCommand } from './commands/registry.js';
 import {
   DEFAULT_CONCURRENCY,
   DEFAULT_MAX_RETRIES,
@@ -30,7 +31,14 @@ import {
 import { VERSION } from './version.js';
 
 /** Positional subcommands - used for parsing and typo detection */
-const SUBCOMMANDS = ['config', 'daemon', 'grep', 'list', 'ls'] as const;
+const SUBCOMMANDS = [
+  'config',
+  'daemon',
+  'grep',
+  'list',
+  'ls',
+  'registry',
+] as const;
 
 interface ParsedArgs {
   command:
@@ -41,6 +49,7 @@ interface ParsedArgs {
     | 'call'
     | 'config'
     | 'daemon'
+    | 'registry'
     | 'help'
     | 'version';
   target?: string;
@@ -52,6 +61,8 @@ interface ParsedArgs {
   daemonAction?: 'start' | 'stop' | 'status';
   daemonServers?: string[];
   daemonForce?: boolean;
+  registryAction?: 'list' | 'get';
+  registryServerName?: string;
 }
 
 function parseArgs(args: string[]): ParsedArgs {
@@ -134,6 +145,18 @@ function parseArgs(args: string[]): ParsedArgs {
       console.error(formatCliError(missingArgumentError('grep', 'pattern')));
       process.exit(ErrorCode.CLIENT_ERROR);
     }
+  } else if (positional[0] === 'registry') {
+    result.command = 'registry';
+    const action = positional[1];
+    if (!action || action === 'list') {
+      result.registryAction = 'list';
+    } else if (action === 'get') {
+      result.registryAction = 'get';
+      result.registryServerName = positional[2];
+    } else {
+      result.registryAction = 'get';
+      result.registryServerName = action;
+    }
   } else if (positional[0].includes('/')) {
     // server/tool format
     result.target = positional[0];
@@ -177,6 +200,8 @@ Usage:
   mcpx [options] <server>/<tool>           Show tool schema and description
   mcpx [options] <server>/<tool> <json>    Call tool with arguments
   mcpx daemon <start|stop|status>          Manage persistent connection daemon
+  mcpx registry [list]                     List available MCP servers from registry
+  mcpx registry get <name>                 Show server details and config
 
 Options:
   -h, --help               Show this help message
@@ -199,6 +224,7 @@ Environment Variables:
   MCP_STRICT_ENV           Set to "false" to warn on missing env vars (default: true)
   MCP_DAEMON_SOCKET        Daemon socket path (default: ${socketPath})
   MCP_DAEMON_IDLE_MS       Daemon idle timeout in ms (default: 300000)
+  MCPX_REGISTRY_URL        Custom registry URL (default: GitHub-hosted registry)
 
 Examples:
   mcpx list                               # List all servers
@@ -211,6 +237,12 @@ Examples:
 
   # Inline config (flat format):
   mcpx -c '{"s":{"command":"npx","args":["-y","@mcp/server"]}}' s/tool
+
+Registry (discover MCP servers):
+  mcpx registry                           # List all available servers
+  mcpx registry list --json               # List as JSON
+  mcpx registry get filesystem            # Show filesystem server config
+  mcpx registry get playwright --json     # Get config as JSON for .mcp.json
 
 Daemon Mode (persistent connections for stateful servers):
   mcpx daemon start                          # Start daemon + all servers from config
@@ -294,6 +326,14 @@ async function main(): Promise<void> {
       await configCommand({
         json: args.json,
         configPath: args.configPath,
+      });
+      break;
+
+    case 'registry':
+      await registryCommand({
+        action: args.registryAction ?? 'list',
+        serverName: args.registryServerName,
+        json: args.json,
       });
       break;
 
