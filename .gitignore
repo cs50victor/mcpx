@@ -43,3 +43,5 @@ temp/
 
 # Local MCP config
 mcp_servers.json
+.mcp.json
+mcp.json
