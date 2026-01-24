@@ -172,6 +172,17 @@
       "notes": "Requires GITHUB_PERSONAL_ACCESS_TOKEN. Create at https://github.com/settings/tokens"
     },
     {
+      "name": "context7",
+      "description": "Up-to-date code documentation for LLMs and AI code editors",
+      "toolCount": 2,
+      "recommended": {
+        "command": "bunx",
+        "args": ["-y", "@upstash/context7-mcp"]
+      },
+      "tools": ["resolve-library-id", "query-docs"],
+      "notes": "Fetches current documentation and code examples for libraries. Optional API key from https://context7.com/dashboard for higher rate limits (pass --api-key YOUR_KEY)."
+    },
+    {
       "name": "slack",
       "description": "Slack workspace operations",
       "toolCount": 7,
