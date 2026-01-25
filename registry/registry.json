@@ -201,6 +201,61 @@
       ],
       "envVars": ["SLACK_BOT_TOKEN", "SLACK_TEAM_ID"],
       "notes": "Requires SLACK_BOT_TOKEN and SLACK_TEAM_ID. Create Slack app at https://api.slack.com/apps"
+    },
+    {
+      "name": "clerk",
+      "description": "Access Clerk SDK snippets and implementation patterns",
+      "toolCount": 2,
+      "recommended": {
+        "command": "bunx",
+        "args": ["-y", "mcp-remote", "https://mcp.clerk.com/mcp"]
+      },
+      "tools": ["clerk_sdk_snippet", "list_clerk_sdk_snippets"],
+      "notes": "Retrieves code examples for Clerk features. Uses streamable HTTP transport via mcp-remote."
+    },
+    {
+      "name": "supabase",
+      "description": "Manage Supabase projects, databases, edge functions, and storage",
+      "toolCount": 32,
+      "recommended": {
+        "command": "bunx",
+        "args": ["-y", "mcp-remote", "https://mcp.supabase.com/mcp?project_ref=<project-ref>"]
+      },
+      "tools": [
+        "list_projects",
+        "get_project",
+        "create_project",
+        "pause_project",
+        "restore_project",
+        "list_organizations",
+        "get_organization",
+        "get_cost",
+        "confirm_cost",
+        "search_docs",
+        "list_tables",
+        "list_extensions",
+        "list_migrations",
+        "apply_migration",
+        "execute_sql",
+        "get_logs",
+        "get_advisors",
+        "get_project_url",
+        "get_publishable_keys",
+        "generate_typescript_types",
+        "list_edge_functions",
+        "get_edge_function",
+        "deploy_edge_function",
+        "create_branch",
+        "list_branches",
+        "delete_branch",
+        "merge_branch",
+        "reset_branch",
+        "rebase_branch",
+        "list_storage_buckets",
+        "get_storage_config",
+        "update_storage_config"
+      ],
+      "notes": "Replace <project-ref> with your project ID from Supabase dashboard. Uses OAuth via browser. Add ?read_only=true for safer ops. Add ?features=database,docs to limit tool groups. For dev/testing only."
     }
   ]
 }
