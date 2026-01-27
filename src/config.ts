@@ -10,6 +10,7 @@ import {
   formatCliError,
   serverNotFoundError,
 } from './errors.js';
+import { fetchRegistry, findServer } from './registry.js';
 
 export interface ToolFilterConfig {
   includeTools?: string[];
@@ -300,8 +301,13 @@ function isInlineJson(value: string): boolean {
   return value.trimStart().startsWith('{');
 }
 
+export interface LoadConfigOptions {
+  allowEmpty?: boolean;
+}
+
 export async function loadConfig(
   explicitPath?: string,
+  options?: LoadConfigOptions,
 ): Promise<McpServersConfig> {
   let rawConfig: unknown;
   let configSource: string;
@@ -346,6 +352,9 @@ export async function loadConfig(
       }
 
       if (!configPath) {
+        if (options?.allowEmpty) {
+          return { mcpServers: {}, _configSource: '<none>' };
+        }
         throw new Error(formatCliError(configSearchError()));
       }
     }
@@ -438,20 +447,71 @@ export async function loadConfig(
   return config;
 }
 
-export function getServerConfig(
+export async function getServerConfig(
   config: McpServersConfig,
   serverName: string,
-): ServerConfig {
+): Promise<ServerConfig> {
   const server = config.mcpServers[serverName];
-  if (!server) {
-    const available = Object.keys(config.mcpServers);
-    throw new Error(
-      formatCliError(
-        serverNotFoundError(serverName, available, config._configSource),
-      ),
-    );
+  if (server) {
+    return server;
   }
-  return server;
+
+  // Fallback to registry
+  const registry = await fetchRegistry();
+  const registryServer = findServer(registry, serverName);
+
+  if (registryServer) {
+    const hasLocalConfig =
+      config._configSource && config._configSource !== '<none>';
+    const serverConfig = {
+      command: registryServer.recommended.command,
+      args: registryServer.recommended.args,
+    };
+    const configJson = JSON.stringify({ [serverName]: serverConfig }, null, 2);
+
+    if (hasLocalConfig) {
+      console.error(
+        `[mcpx] Server '${serverName}' not found in local config (${config._configSource})`,
+      );
+    } else {
+      console.error(
+        `[mcpx] No local config found. Server '${serverName}' not configured.`,
+      );
+    }
+    console.error('[mcpx] Falling back to registry. Using config:');
+    console.error(configJson);
+    if (hasLocalConfig) {
+      console.error(`[mcpx] To persist: add above to ${config._configSource}`);
+    } else {
+      console.error(
+        '[mcpx] To persist: add above to ./.mcp.json (project) or ~/.mcp.json (global)',
+      );
+    }
+    console.error(`[mcpx] Full details: mcpx registry get ${serverName}`);
+    if (registryServer.envVars?.length) {
+      console.error(
+        `[mcpx] Required env vars: ${registryServer.envVars.join(', ')}`,
+      );
+    }
+    if (registryServer.notes) {
+      console.error(`[mcpx] Note: ${registryServer.notes}`);
+    }
+    return serverConfig;
+  }
+
+  // Neither found - use smart suggestions
+  const localServers = Object.keys(config.mcpServers);
+  const registryServers = registry.servers.map((s) => s.name);
+  throw new Error(
+    formatCliError(
+      serverNotFoundError(
+        serverName,
+        localServers,
+        registryServers,
+        config._configSource,
+      ),
+    ),
+  );
 }
 
 export function listServerNames(config: McpServersConfig): string[] {

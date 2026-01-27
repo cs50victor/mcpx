@@ -100,7 +100,7 @@ export async function callCommand(options: CallOptions): Promise<void> {
   let config: McpServersConfig;
 
   try {
-    config = await loadConfig(options.configPath);
+    config = await loadConfig(options.configPath, { allowEmpty: true });
   } catch (error) {
     console.error((error as Error).message);
     process.exit(ErrorCode.CLIENT_ERROR);
@@ -138,7 +138,7 @@ export async function callCommand(options: CallOptions): Promise<void> {
 
   let serverConfig: ServerConfig;
   try {
-    serverConfig = getServerConfig(config, serverName);
+    serverConfig = await getServerConfig(config, serverName);
   } catch (error) {
     console.error((error as Error).message);
     process.exit(ErrorCode.CLIENT_ERROR);

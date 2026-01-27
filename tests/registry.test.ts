@@ -1,9 +1,14 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { join } from 'node:path';
+import { mkdtemp, writeFile, rm, stat } from 'node:fs/promises';
+import { tmpdir, homedir } from 'node:os';
+import { existsSync } from 'node:fs';
 import {
   getRegistryUrl,
   fetchRegistry,
   findServer,
+  clearRegistryCache,
+  getCachePath,
   type Registry,
   type RegistryServer,
 } from '../src/registry';
@@ -18,6 +23,7 @@ describe('registry', () => {
 
   beforeEach(() => {
     process.env.MCPX_REGISTRY_URL = LOCAL_REGISTRY_PATH;
+    clearRegistryCache();
   });
 
   afterEach(() => {
@@ -26,6 +32,7 @@ describe('registry', () => {
     } else {
       process.env.MCPX_REGISTRY_URL = originalEnv;
     }
+    clearRegistryCache();
   });
 
   describe('getRegistryUrl', () => {
@@ -102,6 +109,29 @@ describe('registry', () => {
       const registry = await fetchRegistry();
       const server = findServer(registry, 'nonexistent');
       expect(server).toBeUndefined();
+    });
+  });
+
+  describe('caching', () => {
+    test('should_return_cached_registry_on_second_call', async () => {
+      const registry1 = await fetchRegistry();
+      const registry2 = await fetchRegistry();
+      expect(registry1).toBe(registry2);
+    });
+
+    test('should_clear_memory_cache_when_clearRegistryCache_called', async () => {
+      const registry1 = await fetchRegistry();
+      clearRegistryCache();
+      const registry2 = await fetchRegistry();
+      expect(registry1).not.toBe(registry2);
+      expect(registry1.servers.length).toBe(registry2.servers.length);
+    });
+
+    test('getCachePath_should_return_path_under_home_cache', () => {
+      const cachePath = getCachePath();
+      expect(cachePath).toContain('.cache');
+      expect(cachePath).toContain('mcpx');
+      expect(cachePath).toContain('registry.json');
     });
   });
 });

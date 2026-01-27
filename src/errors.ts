@@ -1,3 +1,5 @@
+import { closest, distance } from 'fastest-levenshtein';
+
 export enum ErrorCode {
   CLIENT_ERROR = 1,
   SERVER_ERROR = 2,
@@ -74,17 +76,34 @@ export function configMissingFieldError(path: string): CliError {
 
 export function serverNotFoundError(
   serverName: string,
-  available: string[],
+  localServers: string[],
+  registryServers: string[] = [],
   configSource?: string,
 ): CliError {
-  const availableList = available.length > 0 ? available.join(', ') : '(none)';
+  const allServers = [...localServers, ...registryServers];
+  const availableList =
+    allServers.length > 0 ? allServers.join(', ') : '(none)';
   const sourceInfo = configSource ? ` (from ${configSource})` : '';
+
+  let suggestion = "Run 'mcpx registry list' to see available servers.";
+
+  if (allServers.length > 0) {
+    const match = closest(serverName, allServers);
+    const dist = distance(serverName, match);
+    if (dist <= 2) {
+      const fromRegistry = registryServers.includes(match)
+        ? ' (from registry)'
+        : '';
+      suggestion = `Did you mean '${match}'${fromRegistry}?`;
+    }
+  }
+
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'SERVER_NOT_FOUND',
     message: `Server "${serverName}" not found in config`,
     details: `Available servers${sourceInfo}: ${availableList}`,
-    suggestion: `Run 'mcpx --help' first if you haven't - it shows config search paths and setup instructions`,
+    suggestion,
   };
 }
 
@@ -268,11 +287,22 @@ export function registryServerNotFoundError(
       ? available.slice(0, 10).join(', ') +
         (available.length > 10 ? ` (+${available.length - 10} more)` : '')
       : '(none)';
+
+  let suggestion = "Run 'mcpx registry list' to see all available servers.";
+
+  if (available.length > 0) {
+    const match = closest(serverName, available);
+    const dist = distance(serverName, match);
+    if (dist <= 2) {
+      suggestion = `Did you mean '${match}'?`;
+    }
+  }
+
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'REGISTRY_SERVER_NOT_FOUND',
     message: `Server "${serverName}" not found in registry`,
     details: `Available: ${availableList}`,
-    suggestion: `Run 'mcpx registry list' to see all available servers.`,
+    suggestion,
   };
 }

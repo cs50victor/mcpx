@@ -30,6 +30,26 @@ describe('config', () => {
   });
 
   describe('loadConfig', () => {
+    test('returns empty config when allowEmpty true and no config found', async () => {
+      const originalCwd = process.cwd();
+      const emptyDir = await mkdtemp(join(tmpdir(), 'mcpx-empty-'));
+      process.chdir(emptyDir);
+      try {
+        const config = await loadConfig(undefined, { allowEmpty: true });
+        expect(config.mcpServers).toEqual({});
+        expect(config._configSource).toBe('<none>');
+      } finally {
+        process.chdir(originalCwd);
+        await rm(emptyDir, { recursive: true, force: true });
+      }
+    });
+
+    test('still throws on explicit path not found even with allowEmpty', async () => {
+      await expect(
+        loadConfig('/nonexistent/path.json', { allowEmpty: true })
+      ).rejects.toThrow('not found');
+    });
+
     test('loads valid config from explicit path', async () => {
       const configPath = join(tempDir, 'mcp_servers.json');
       await writeFile(
@@ -192,11 +212,11 @@ describe('config', () => {
       );
 
       const config = await loadConfig(configPath);
-      const server = getServerConfig(config, 'server1');
+      const server = await getServerConfig(config, 'server1');
       expect((server as any).command).toBe('cmd1');
     });
 
-    test('throws on unknown server', async () => {
+    test('throws on unknown server not in registry', async () => {
       const configPath = join(tempDir, 'config.json');
       await writeFile(
         configPath,
@@ -206,7 +226,22 @@ describe('config', () => {
       );
 
       const config = await loadConfig(configPath);
-      expect(() => getServerConfig(config, 'unknown')).toThrow('not found');
+      await expect(getServerConfig(config, 'totally-unknown-xyz')).rejects.toThrow('not found');
+    });
+
+    test('falls back to registry when server not in local config', async () => {
+      const configPath = join(tempDir, 'config.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          mcpServers: { local: { command: 'cmd' } },
+        })
+      );
+
+      const config = await loadConfig(configPath);
+      const server = await getServerConfig(config, 'filesystem');
+      expect((server as any).command).toBe('bunx');
+      expect((server as any).args).toContain('@modelcontextprotocol/server-filesystem');
     });
   });
 

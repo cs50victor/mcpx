@@ -215,6 +215,10 @@ export function formatRegistryServer(server: RegistryServer): string {
   );
   lines.push(`  ${configJson.split('\n').join('\n  ')}`);
   lines.push('');
+  lines.push(
+    `${color('Tip:', colors.dim)} Add the above config to ./.mcp.json (for this project) or ~/.mcp.json (for global access)`,
+  );
+  lines.push('');
 
   if (server.alternatives && server.alternatives.length > 0) {
     lines.push(`${color('Alternatives:', colors.bold)}`);

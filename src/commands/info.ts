@@ -41,7 +41,7 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
   let config: McpServersConfig;
 
   try {
-    config = await loadConfig(options.configPath);
+    config = await loadConfig(options.configPath, { allowEmpty: true });
   } catch (error) {
     console.error((error as Error).message);
     process.exit(ErrorCode.CLIENT_ERROR);
@@ -51,7 +51,7 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
 
   let serverConfig: ServerConfig;
   try {
-    serverConfig = getServerConfig(config, serverName);
+    serverConfig = await getServerConfig(config, serverName);
   } catch (error) {
     console.error((error as Error).message);
     process.exit(ErrorCode.CLIENT_ERROR);

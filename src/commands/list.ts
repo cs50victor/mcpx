@@ -65,7 +65,7 @@ async function fetchServerTools(
   config: McpServersConfig,
 ): Promise<ServerWithTools> {
   try {
-    const serverConfig = getServerConfig(config, serverName);
+    const serverConfig = await getServerConfig(config, serverName);
     const { client, close, instructions } = await connectToServer(
       serverName,
       serverConfig,
@@ -160,5 +160,6 @@ export async function listCommand(options: ListOptions): Promise<void> {
     console.log(formatJson(jsonOutput));
   } else {
     console.log(formatServerList(displayServers, options.withDescriptions));
+    console.log("\nTip: Run 'mcpx registry list' to discover more servers.");
   }
 }
