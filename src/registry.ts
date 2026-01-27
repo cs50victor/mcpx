@@ -1,5 +1,6 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, stat, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 export interface RegistryServer {
   name: string;
@@ -27,13 +28,59 @@ export interface Registry {
 const DEFAULT_REGISTRY_URL =
   'https://raw.githubusercontent.com/cs50victor/mcpx/dev/registry/registry.json';
 
+const STALE_MS = 3600 * 1000; // 1 hour
+
+let memoryCache: Registry | null = null;
+
+export function getCachePath(): string {
+  return join(homedir(), '.cache', 'mcpx', 'registry.json');
+}
+
+export function clearRegistryCache(): void {
+  memoryCache = null;
+}
+
 export function getRegistryUrl(): string {
   return process.env.MCPX_REGISTRY_URL || DEFAULT_REGISTRY_URL;
 }
 
+async function isCacheFresh(): Promise<boolean> {
+  try {
+    const { mtime } = await stat(getCachePath());
+    return Date.now() - mtime.getTime() < STALE_MS;
+  } catch {
+    return false;
+  }
+}
+
+async function readDiskCache(): Promise<Registry | null> {
+  try {
+    const content = await readFile(getCachePath(), 'utf-8');
+    return JSON.parse(content) as Registry;
+  } catch {
+    return null;
+  }
+}
+
+async function writeDiskCache(registry: Registry): Promise<void> {
+  try {
+    const cachePath = getCachePath();
+    await mkdir(join(homedir(), '.cache', 'mcpx'), { recursive: true });
+    await writeFile(cachePath, JSON.stringify(registry));
+  } catch {
+    // NOTE(victor): silently ignore cache write failures - cache is optional optimization
+  }
+}
+
 export async function fetchRegistry(): Promise<Registry> {
+  // 1. Check memory cache
+  if (memoryCache) {
+    return memoryCache;
+  }
+
   const url = getRegistryUrl();
 
+  // 2. For local files, skip disk cache (used in tests and local development)
   if (url.startsWith('file://') || !url.startsWith('http')) {
     const filePath = url.startsWith('file://')
       ? url.slice(7)
@@ -41,16 +88,44 @@ export async function fetchRegistry(): Promise<Registry> {
         ? url
         : join(process.cwd(), url);
     const content = await readFile(filePath, 'utf-8');
-    return JSON.parse(content) as Registry;
+    const registry = JSON.parse(content) as Registry;
+    memoryCache = registry;
+    return registry;
   }
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch registry: ${response.status} ${response.statusText}`,
-    );
+  // 3. Check disk cache freshness
+  if (await isCacheFresh()) {
+    const cached = await readDiskCache();
+    if (cached) {
+      memoryCache = cached;
+      return cached;
+    }
   }
-  return (await response.json()) as Registry;
+
+  // 4. Fetch from network
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch registry: ${response.status} ${response.statusText}`,
+      );
+    }
+    const registry = (await response.json()) as Registry;
+
+    // 5. Write to disk cache
+    await writeDiskCache(registry);
+    memoryCache = registry;
+    return registry;
+  } catch (err) {
+    // 6. Fallback to stale cache on network error
+    const staleCache = await readDiskCache();
+    if (staleCache) {
+      console.error('[mcpx] Warning: Using stale registry cache (network error)');
+      memoryCache = staleCache;
+      return staleCache;
+    }
+    throw err;
+  }
 }
 
 export function findServer(

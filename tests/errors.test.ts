@@ -90,13 +90,28 @@ describe('errors', () => {
       expect(error.message).toContain('unknown');
       expect(error.details).toContain('github');
       expect(error.details).toContain('filesystem');
-      expect(error.suggestion).toContain('mcpx --help');
     });
 
     test('serverNotFoundError handles empty server list', () => {
       const error = serverNotFoundError('unknown', []);
       expect(error.details).toContain('(none)');
-      expect(error.suggestion).toContain('mcpx --help');
+    });
+
+    test('serverNotFoundError suggests close match with Levenshtein distance <= 2', () => {
+      const error = serverNotFoundError('filesytem', ['github', 'filesystem']);
+      expect(error.suggestion).toContain("Did you mean 'filesystem'");
+    });
+
+    test('serverNotFoundError does not suggest when distance > 2', () => {
+      const error = serverNotFoundError('totally-different', ['github', 'filesystem']);
+      expect(error.suggestion).not.toContain('Did you mean');
+      expect(error.suggestion).toContain('mcpx registry list');
+    });
+
+    test('serverNotFoundError marks registry suggestions with source', () => {
+      const error = serverNotFoundError('filesytem', [], ['filesystem']);
+      expect(error.suggestion).toContain("Did you mean 'filesystem'");
+      expect(error.suggestion).toContain('from registry');
     });
 
     test('serverConnectionError detects command not found', () => {

@@ -70,7 +70,7 @@ async function searchServerTools(
   pattern: RegExp,
 ): Promise<ServerSearchResult> {
   try {
-    const serverConfig = getServerConfig(config, serverName);
+    const serverConfig = await getServerConfig(config, serverName);
     const { client, close } = await connectToServer(serverName, serverConfig);
 
     try {
