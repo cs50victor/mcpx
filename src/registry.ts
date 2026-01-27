@@ -1,6 +1,6 @@
-import { readFile, writeFile, stat, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 export interface RegistryServer {
   name: string;
@@ -120,7 +120,9 @@ export async function fetchRegistry(): Promise<Registry> {
     // 6. Fallback to stale cache on network error
     const staleCache = await readDiskCache();
     if (staleCache) {
-      console.error('[mcpx] Warning: Using stale registry cache (network error)');
+      console.error(
+        '[mcpx] Warning: Using stale registry cache (network error)',
+      );
       memoryCache = staleCache;
       return staleCache;
     }

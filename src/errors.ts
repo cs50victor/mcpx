@@ -81,7 +81,8 @@ export function serverNotFoundError(
   configSource?: string,
 ): CliError {
   const allServers = [...localServers, ...registryServers];
-  const availableList = allServers.length > 0 ? allServers.join(', ') : '(none)';
+  const availableList =
+    allServers.length > 0 ? allServers.join(', ') : '(none)';
   const sourceInfo = configSource ? ` (from ${configSource})` : '';
 
   let suggestion = "Run 'mcpx registry list' to see available servers.";
@@ -90,7 +91,9 @@ export function serverNotFoundError(
     const match = closest(serverName, allServers);
     const dist = distance(serverName, match);
     if (dist <= 2) {
-      const fromRegistry = registryServers.includes(match) ? ' (from registry)' : '';
+      const fromRegistry = registryServers.includes(match)
+        ? ' (from registry)'
+        : '';
       suggestion = `Did you mean '${match}'${fromRegistry}?`;
     }
   }
@@ -284,11 +287,22 @@ export function registryServerNotFoundError(
       ? available.slice(0, 10).join(', ') +
         (available.length > 10 ? ` (+${available.length - 10} more)` : '')
       : '(none)';
+
+  let suggestion = "Run 'mcpx registry list' to see all available servers.";
+
+  if (available.length > 0) {
+    const match = closest(serverName, available);
+    const dist = distance(serverName, match);
+    if (dist <= 2) {
+      suggestion = `Did you mean '${match}'?`;
+    }
+  }
+
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'REGISTRY_SERVER_NOT_FOUND',
     message: `Server "${serverName}" not found in registry`,
     details: `Available: ${availableList}`,
-    suggestion: `Run 'mcpx registry list' to see all available servers.`,
+    suggestion,
   };
 }

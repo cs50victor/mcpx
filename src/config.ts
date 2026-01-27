@@ -461,17 +461,42 @@ export async function getServerConfig(
   const registryServer = findServer(registry, serverName);
 
   if (registryServer) {
-    console.error(`[mcpx] Using registry config for '${serverName}'`);
-    if (registryServer.envVars?.length) {
-      console.error(`[mcpx]   Required env vars: ${registryServer.envVars.join(', ')}`);
-    }
-    if (registryServer.notes) {
-      console.error(`[mcpx]   Note: ${registryServer.notes}`);
-    }
-    return {
+    const hasLocalConfig =
+      config._configSource && config._configSource !== '<none>';
+    const serverConfig = {
       command: registryServer.recommended.command,
       args: registryServer.recommended.args,
     };
+    const configJson = JSON.stringify({ [serverName]: serverConfig }, null, 2);
+
+    if (hasLocalConfig) {
+      console.error(
+        `[mcpx] Server '${serverName}' not found in local config (${config._configSource})`,
+      );
+    } else {
+      console.error(
+        `[mcpx] No local config found. Server '${serverName}' not configured.`,
+      );
+    }
+    console.error('[mcpx] Falling back to registry. Using config:');
+    console.error(configJson);
+    if (hasLocalConfig) {
+      console.error(`[mcpx] To persist: add above to ${config._configSource}`);
+    } else {
+      console.error(
+        '[mcpx] To persist: add above to ./.mcp.json (project) or ~/.mcp.json (global)',
+      );
+    }
+    console.error(`[mcpx] Full details: mcpx registry get ${serverName}`);
+    if (registryServer.envVars?.length) {
+      console.error(
+        `[mcpx] Required env vars: ${registryServer.envVars.join(', ')}`,
+      );
+    }
+    if (registryServer.notes) {
+      console.error(`[mcpx] Note: ${registryServer.notes}`);
+    }
+    return serverConfig;
   }
 
   // Neither found - use smart suggestions
@@ -479,7 +504,12 @@ export async function getServerConfig(
   const registryServers = registry.servers.map((s) => s.name);
   throw new Error(
     formatCliError(
-      serverNotFoundError(serverName, localServers, registryServers, config._configSource),
+      serverNotFoundError(
+        serverName,
+        localServers,
+        registryServers,
+        config._configSource,
+      ),
     ),
   );
 }
