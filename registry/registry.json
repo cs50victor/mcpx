@@ -7,7 +7,11 @@
       "toolCount": 11,
       "recommended": {
         "command": "bunx",
-        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-filesystem",
+          "/path/to/allowed/dir"
+        ]
       },
       "tools": [
         "read_file",
@@ -219,9 +223,19 @@
       "toolCount": 4,
       "recommended": {
         "command": "uvx",
-        "args": ["--from", "git+https://github.com/cs50victor/gemini-media", "gemini-media", "mcp"]
+        "args": [
+          "--from",
+          "git+https://github.com/cs50victor/gemini-media",
+          "gemini-media",
+          "mcp"
+        ]
       },
-      "tools": ["analyze_media", "generate_image", "clear_cache", "list_models"],
+      "tools": [
+        "analyze_media",
+        "generate_image",
+        "clear_cache",
+        "list_models"
+      ],
       "envVars": ["GEMINI_API_KEY", "GEMINI_MEDIA_GCS_BUCKET"],
       "notes": "Analyzes YouTube URLs, audio, video, images, and PDFs. Generates images with Gemini 3 Pro. GEMINI_MEDIA_GCS_BUCKET required for local file analysis (uploads to GCS)."
     },
@@ -252,7 +266,11 @@
       "toolCount": 32,
       "recommended": {
         "command": "bunx",
-        "args": ["-y", "mcp-remote", "https://mcp.supabase.com/mcp?project_ref=<project-ref>"]
+        "args": [
+          "-y",
+          "mcp-remote",
+          "https://mcp.supabase.com/mcp?project_ref=<project-ref>"
+        ]
       },
       "tools": [
         "list_projects",
@@ -289,6 +307,25 @@
         "update_storage_config"
       ],
       "notes": "Replace <project-ref> with your project ID from Supabase dashboard. Uses OAuth via browser. Add ?read_only=true for safer ops. Add ?features=database,docs to limit tool groups. For dev/testing only."
+    },
+    {
+      "name": "shadcn",
+      "description": "Browse, search, and install shadcn/ui components from registries",
+      "toolCount": 7,
+      "recommended": {
+        "command": "bunx",
+        "args": ["-y", "shadcn@latest", "mcp"]
+      },
+      "tools": [
+        "get_project_registries",
+        "list_items_in_registries",
+        "search_items_in_registries",
+        "view_items_in_registries",
+        "get_item_examples_from_registries",
+        "get_add_command_for_items",
+        "get_audit_checklist"
+      ],
+      "notes": "Requires components.json in project root. Configure registries in components.json. Supports @shadcn (default), private registries, and third-party sources."
     }
   ]
 }
