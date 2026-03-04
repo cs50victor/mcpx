@@ -103,6 +103,9 @@ export async function listCommand(options: ListOptions): Promise<void> {
 
   if (serverNames.length === 0) {
     console.error('Warning: No servers configured. Add servers to .mcp.json');
+    console.error(
+      "Tip: If the MCP server you need is not configured locally, run 'mcpx registry list' to discover remote servers.",
+    );
     return;
   }
 
@@ -160,6 +163,8 @@ export async function listCommand(options: ListOptions): Promise<void> {
     console.log(formatJson(jsonOutput));
   } else {
     console.log(formatServerList(displayServers, options.withDescriptions));
-    console.log("\nTip: Run 'mcpx registry list' to discover more servers.");
+    console.log(
+      "\nTip: If the MCP server you need is not listed locally, run 'mcpx registry list' to discover remote servers.",
+    );
   }
 }
