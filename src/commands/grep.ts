@@ -109,7 +109,7 @@ export async function grepCommand(options: GrepOptions): Promise<void> {
   let config: McpServersConfig;
 
   try {
-    config = await loadConfig(options.configPath);
+    config = await loadConfig(options.configPath, { allowEmpty: true });
   } catch (error) {
     console.error((error as Error).message);
     process.exit(ErrorCode.CLIENT_ERROR);
@@ -120,6 +120,9 @@ export async function grepCommand(options: GrepOptions): Promise<void> {
 
   if (serverNames.length === 0) {
     console.error('Warning: No servers configured. Add servers to .mcp.json');
+    console.error(
+      "Tip: If the MCP server you need is not configured locally, run 'mcpx registry list' to discover remote servers.",
+    );
     return;
   }
 

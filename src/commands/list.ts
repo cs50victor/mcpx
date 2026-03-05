@@ -93,7 +93,7 @@ export async function listCommand(options: ListOptions): Promise<void> {
   let config: McpServersConfig;
 
   try {
-    config = await loadConfig(options.configPath);
+    config = await loadConfig(options.configPath, { allowEmpty: true });
   } catch (error) {
     console.error((error as Error).message);
     process.exit(ErrorCode.CLIENT_ERROR);
